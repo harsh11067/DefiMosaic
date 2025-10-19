@@ -1,36 +1,146 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+🧠 DefiMosaic
 
-## Getting Started
+⚡ “Where DeFi meets AI. Predict, Earn, and Grow — intelligently.”
 
-First, run the development server:
+🪩 Overview
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+It allows users to:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Create and join on-chain betting pools on crypto price movements
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Use AI-powered portfolio management to diversify holdings by risk
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Earn yield from AI-recommended DeFi strategies
 
-## Learn More
+Experience gamified “branching bets” where winnings can fund new bets — compounding results
 
-To learn more about Next.js, take a look at the following resources:
+Use native POL or USDC for participation (Polygon Amoy testnet supported)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+✨ Core Features
+Category	Description
+🤖 AI-Driven Strategy	Uses OpenAI’s function calling + real yield data to recommend risk-balanced DeFi allocations.
+🎲 Prediction Markets	Create or join pools predicting crypto price direction (up/down) for a set time (e.g., 1 hour).
+🔁 Branching Bets	Leverage up to 80 % of initial capital into child bets — a self-sustaining compounding system.
+🧩 Dual-Asset Support	Supports both USDC & native POL (MATIC) pools for flexible staking.
+📈 Real-Time Market Feeds	Integrated mock or live Chainlink AggregatorV3 price data for ETH, BTC, etc.
+🧮 Portfolio AI Allocation	Allocates across Stable Crypto, Mutual Funds, Stocks, and Growing Crypto sectors.
+💬 AI Chatbot	In-app assistant explaining yield rationale and investment strategy logic.
+🧰 Tech Stack
+🪶 Frontend
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Next.js 14 (App Router)
 
-## Deploy on Vercel
+TypeScript
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Tailwind CSS + Framer Motion
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Recharts for real-time price & allocation charts
+
+Wagmi + RainbowKit for wallet integration
+
+OpenAI API (Function Calling) for structured reasoning
+
+⚙️ Backend / Smart Contracts
+
+Solidity 0.8.x
+
+Hardhat
+
+OpenZeppelin ERC-1155 (fractionalized pool tokens)
+
+MockV3Aggregator for test price feeds
+
+Polygon Amoy network deployment
+
+🧩 Smart Contracts
+Contract	Purpose
+BetPoolFactory.sol	Deploys & tracks all betting pools.
+BetPool.sol	Individual pool logic, deposits, branching bets, and claims.
+MockV3Aggregator.sol	Mock price feed for testing.
+StrategyAI.sol (optional)	Interfaces with off-chain AI recommender.
+🚀 Deployment
+1️⃣ Setup Environment
+npm install
+npx hardhat compile
+
+
+Create .env:
+
+PRIVATE_KEY=your_private_key
+POLYGON_AMOY_RPC=https://rpc-amoy.polygon.technology
+
+2️⃣ Deploy Contracts
+npx hardhat run scripts/deploy.js --network polygon_amoy
+
+3️⃣ Update Frontend
+
+Add the deployed BetPoolFactory address to your config:
+
+export const FACTORY_ADDRESS = "0xYourDeployedAddress";
+
+🧠 AI Strategy Logic
+
+The AI recommends allocation across four key sectors based on wallet balance & risk appetite:
+
+Color	Category	Example Assets
+🟦 Blue	Stable Crypto	Bitcoin, Ethereum
+🟪 Purple	Mutual Funds	Equity & thematic DeFi baskets
+🟧 Orange	Stocks	Tech & emerging-market equities
+🟩 Green	Growing Crypto	Altcoins, early blockchain tokens
+
+It uses a JSON schema for structured output:
+
+{
+  "allocation": {
+    "stable": 40,
+    "mutual_funds": 20,
+    "stocks": 25,
+    "growing_crypto": 15
+  },
+  "rationale": "Balanced yield with moderate risk exposure."
+}
+
+💸 Creating a Pool (POL or USDC)
+
+Connect wallet (Polygon Amoy).
+
+Choose Pool Type → USDC or POL (MATIC).
+
+Set Price Target & Duration (1 hour fixed).
+
+Enter Amount (e.g., 0.01 MATIC).
+
+Click Create Pool → confirm transaction in wallet.
+
+Track live price and result after time window closes.
+
+🧪 Testing
+npx hardhat test
+
+
+Includes:
+
+Deposit & pool creation
+
+Child bet branching
+
+Resolution via mock aggregator
+
+Claim flow
+
+🧭 Roadmap
+
+ Add real Chainlink price feeds
+
+ Expand branching leverage logic
+
+ Integrate AI-based yield farming engine
+
+ Launch leaderboard & reward NFTs
+
+ Deploy to Polygon mainnet
+
+🧑‍💻 Developed By
+
+Solo Developer — Hackathon Submission 2025
+Built with ❤️ using AI + DeFi + Polygon
