@@ -158,6 +158,44 @@
         "Context"
       ]
     },
+    "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\node_modules\\@openzeppelin\\contracts\\interfaces\\draft-IERC6093.sol": {
+      "lastModificationDate": 1760030575149,
+      "contentHash": "5041977bbe908de2e6ed0270447f79ad",
+      "sourceName": "@openzeppelin/contracts/interfaces/draft-IERC6093.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.8.4"
+      ],
+      "artifacts": [
+        "IERC1155Errors",
+        "IERC20Errors",
+        "IERC721Errors"
+      ]
+    },
     "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\Arrays.sol": {
       "lastModificationDate": 1760030574465,
       "contentHash": "e19f50397668e814730982e8f2aa6e56",
@@ -199,44 +237,6 @@
         "Arrays"
       ]
     },
-    "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\node_modules\\@openzeppelin\\contracts\\interfaces\\draft-IERC6093.sol": {
-      "lastModificationDate": 1760030575149,
-      "contentHash": "5041977bbe908de2e6ed0270447f79ad",
-      "sourceName": "@openzeppelin/contracts/interfaces/draft-IERC6093.sol",
-      "solcConfig": {
-        "version": "0.8.24",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        ">=0.8.4"
-      ],
-      "artifacts": [
-        "IERC1155Errors",
-        "IERC20Errors",
-        "IERC721Errors"
-      ]
-    },
     "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\introspection\\ERC165.sol": {
       "lastModificationDate": 1760030575342,
       "contentHash": "0906d06dca25210d4696dcef6dad2909",
@@ -273,6 +273,44 @@
       ],
       "artifacts": [
         "ERC165"
+      ]
+    },
+    "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\node_modules\\@openzeppelin\\contracts\\token\\ERC1155\\extensions\\IERC1155MetadataURI.sol": {
+      "lastModificationDate": 1760030575918,
+      "contentHash": "954b62833ba591c2f2ad3354a5048f2a",
+      "sourceName": "@openzeppelin/contracts/token/ERC1155/extensions/IERC1155MetadataURI.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../IERC1155.sol"
+      ],
+      "versionPragmas": [
+        ">=0.6.2"
+      ],
+      "artifacts": [
+        "IERC1155MetadataURI"
       ]
     },
     "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\node_modules\\@openzeppelin\\contracts\\token\\ERC1155\\IERC1155.sol": {
@@ -352,10 +390,10 @@
         "ERC1155Utils"
       ]
     },
-    "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\node_modules\\@openzeppelin\\contracts\\token\\ERC1155\\extensions\\IERC1155MetadataURI.sol": {
-      "lastModificationDate": 1760030575918,
-      "contentHash": "954b62833ba591c2f2ad3354a5048f2a",
-      "sourceName": "@openzeppelin/contracts/token/ERC1155/extensions/IERC1155MetadataURI.sol",
+    "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\Comparators.sol": {
+      "lastModificationDate": 1760030574836,
+      "contentHash": "0e57405a6f979853cbfeb0df3546c3a3",
+      "sourceName": "@openzeppelin/contracts/utils/Comparators.sol",
       "solcConfig": {
         "version": "0.8.24",
         "settings": {
@@ -380,14 +418,12 @@
           }
         }
       },
-      "imports": [
-        "../IERC1155.sol"
-      ],
+      "imports": [],
       "versionPragmas": [
-        ">=0.6.2"
+        "^0.8.20"
       ],
       "artifacts": [
-        "IERC1155MetadataURI"
+        "Comparators"
       ]
     },
     "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\StorageSlot.sol": {
@@ -424,42 +460,6 @@
       ],
       "artifacts": [
         "StorageSlot"
-      ]
-    },
-    "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\Comparators.sol": {
-      "lastModificationDate": 1760030574836,
-      "contentHash": "0e57405a6f979853cbfeb0df3546c3a3",
-      "sourceName": "@openzeppelin/contracts/utils/Comparators.sol",
-      "solcConfig": {
-        "version": "0.8.24",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "Comparators"
       ]
     },
     "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\SlotDerivation.sol": {
@@ -683,10 +683,10 @@
         "IERC1155Receiver"
       ]
     },
-    "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\node_modules\\@openzeppelin\\contracts\\token\\ERC20\\ERC20.sol": {
-      "lastModificationDate": 1760030575424,
-      "contentHash": "59dfce11284f2636db261df9b6a18f81",
-      "sourceName": "@openzeppelin/contracts/token/ERC20/ERC20.sol",
+    "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\node_modules\\@openzeppelin\\contracts\\token\\ERC1155\\utils\\ERC1155Holder.sol": {
+      "lastModificationDate": 1760030575289,
+      "contentHash": "2f898a5ad6c39a1a075c745998a69f5b",
+      "sourceName": "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol",
       "solcConfig": {
         "version": "0.8.24",
         "settings": {
@@ -712,90 +712,14 @@
         }
       },
       "imports": [
-        "./IERC20.sol",
-        "./extensions/IERC20Metadata.sol",
-        "../../utils/Context.sol",
-        "../../interfaces/draft-IERC6093.sol"
+        "../../../utils/introspection/ERC165.sol",
+        "../IERC1155Receiver.sol"
       ],
       "versionPragmas": [
         "^0.8.20"
       ],
       "artifacts": [
-        "ERC20"
-      ]
-    },
-    "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\node_modules\\@openzeppelin\\contracts\\token\\ERC20\\IERC20.sol": {
-      "lastModificationDate": 1760030576000,
-      "contentHash": "9261adf6457863de3e9892f51317ec89",
-      "sourceName": "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-      "solcConfig": {
-        "version": "0.8.24",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        ">=0.4.16"
-      ],
-      "artifacts": [
-        "IERC20"
-      ]
-    },
-    "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\node_modules\\@openzeppelin\\contracts\\token\\ERC20\\extensions\\IERC20Metadata.sol": {
-      "lastModificationDate": 1760030576019,
-      "contentHash": "513778b30d2750f5d2b9b19bbcf748a5",
-      "sourceName": "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol",
-      "solcConfig": {
-        "version": "0.8.24",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../IERC20.sol"
-      ],
-      "versionPragmas": [
-        ">=0.6.2"
-      ],
-      "artifacts": [
-        "IERC20Metadata"
+        "ERC1155Holder"
       ]
     },
     "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\contracts\\BetPool.sol": {
@@ -876,10 +800,10 @@
         "AggregatorV3Interface"
       ]
     },
-    "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\node_modules\\@openzeppelin\\contracts\\token\\ERC1155\\utils\\ERC1155Holder.sol": {
-      "lastModificationDate": 1760030575289,
-      "contentHash": "2f898a5ad6c39a1a075c745998a69f5b",
-      "sourceName": "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol",
+    "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\node_modules\\@openzeppelin\\contracts\\token\\ERC20\\IERC20.sol": {
+      "lastModificationDate": 1760030576000,
+      "contentHash": "9261adf6457863de3e9892f51317ec89",
+      "sourceName": "@openzeppelin/contracts/token/ERC20/IERC20.sol",
       "solcConfig": {
         "version": "0.8.24",
         "settings": {
@@ -904,19 +828,16 @@
           }
         }
       },
-      "imports": [
-        "../../../utils/introspection/ERC165.sol",
-        "../IERC1155Receiver.sol"
-      ],
+      "imports": [],
       "versionPragmas": [
-        "^0.8.20"
+        ">=0.4.16"
       ],
       "artifacts": [
-        "ERC1155Holder"
+        "IERC20"
       ]
     },
     "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\contracts\\BetPoolFactory.sol": {
-      "lastModificationDate": 1760824795838,
+      "lastModificationDate": 1762411483019,
       "contentHash": "2bd500d561328851e76f055dbbd9e4c5",
       "sourceName": "contracts/BetPoolFactory.sol",
       "solcConfig": {
@@ -952,6 +873,166 @@
       ],
       "artifacts": [
         "BetPoolFactory"
+      ]
+    },
+    "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\node_modules\\@openzeppelin\\contracts\\token\\ERC20\\ERC20.sol": {
+      "lastModificationDate": 1760030575424,
+      "contentHash": "59dfce11284f2636db261df9b6a18f81",
+      "sourceName": "@openzeppelin/contracts/token/ERC20/ERC20.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./IERC20.sol",
+        "./extensions/IERC20Metadata.sol",
+        "../../utils/Context.sol",
+        "../../interfaces/draft-IERC6093.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "ERC20"
+      ]
+    },
+    "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\node_modules\\@openzeppelin\\contracts\\token\\ERC20\\extensions\\IERC20Metadata.sol": {
+      "lastModificationDate": 1760030576019,
+      "contentHash": "513778b30d2750f5d2b9b19bbcf748a5",
+      "sourceName": "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../IERC20.sol"
+      ],
+      "versionPragmas": [
+        ">=0.6.2"
+      ],
+      "artifacts": [
+        "IERC20Metadata"
+      ]
+    },
+    "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\contracts\\SwapHelper.sol": {
+      "lastModificationDate": 1762391068363,
+      "contentHash": "b50d9f14de5a435577e2af353b2e4b42",
+      "sourceName": "contracts/SwapHelper.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/access/Ownable.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "ISwapRouter",
+        "IWETH",
+        "SwapHelper"
+      ]
+    },
+    "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\contracts\\MultiversePrediction.sol": {
+      "lastModificationDate": 1762359397562,
+      "contentHash": "483dde13e76eda8dfe2da04be6b97fba",
+      "sourceName": "contracts/MultiversePrediction.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/access/Ownable.sol",
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "./interfaces/AggregatorV3Interface.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "MultiversePrediction"
       ]
     },
     "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\contracts\\MockV3Aggregator.sol": {
@@ -1066,6 +1147,44 @@
       ],
       "artifacts": [
         "MockERC20"
+      ]
+    },
+    "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\contracts\\StrategyRegistry.sol": {
+      "lastModificationDate": 1762359397563,
+      "contentHash": "e61c74211e6ce29f7be24b3eff930dba",
+      "sourceName": "contracts/StrategyRegistry.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/access/Ownable.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "StrategyRegistry"
       ]
     },
     "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\contracts\\contracts\\MockOracle.sol": {
