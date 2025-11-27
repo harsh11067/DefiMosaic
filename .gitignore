@@ -1,5 +1,72 @@
-node_modules
+# -------------------------
+# Node / Next.js
+# -------------------------
+node_modules/
+.next/
+dist/
+out/
+npm-debug.log*
+yarn-debug.log*
+pnpm-lock.yaml
+package-lock.json
+
+# -------------------------
+# Frontend / Web Folder
+# -------------------------
+web/node_modules/
+web/.next/
+web/.env.local
+web/.env
+web/.vercel/
+
+# -------------------------
+# Environment Files (Backend + Contracts)
+# -------------------------
+.env
+.env.local
+.env.production
+.env.development
 contracts/.env
-contracts/.env
-*/node_modules
-*/.next
+
+# -------------------------
+# Prisma
+# -------------------------
+.prisma/
+
+# -------------------------
+# Supabase
+# -------------------------
+# Supabase local dev database
+supabase/.temp/
+supabase/migrations/.history/
+supabase/docker/
+supabase/config.toml
+supabase/.env
+supabase/secrets.env
+
+# Supabase auto-generated keys / service files
+.supabase/
+**/supabase/functions/**/.env*
+
+# -------------------------
+# Hardhat, Rust, Blockchain Artifacts
+# -------------------------
+artifacts/
+cache/
+target/
+typechain/
+coverage/
+
+# -------------------------
+# IDE / System Files
+# -------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# -------------------------
+# Misc
+# -------------------------
+*.log
+*.tsbuildinfo

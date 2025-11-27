@@ -3,7 +3,13 @@ import { writeFileSync, mkdirSync } from "fs";
 import { resolve } from "path";
 
 async function main() {
-  const [deployer] = await ethers.getSigners();
+  const signers = await ethers.getSigners();
+  if (signers.length === 0) {
+    throw new Error(
+      "No signers found. Please set DEPLOYER_PRIVATE_KEY in .env file or configure Hardhat network accounts."
+    );
+  }
+  const [deployer] = signers;
   console.log("Deployer:", deployer.address);
 
   // --- Deploy USDC Mock ---
