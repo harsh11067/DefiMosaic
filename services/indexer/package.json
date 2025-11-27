@@ -1,0 +1,22 @@
+{
+  "name": "indexer",
+  "version": "1.0.0",
+  "description": "Indexer service for prediction events and real-time updates",
+  "main": "indexer.js",
+  "scripts": {
+    "start": "node indexer.js",
+    "dev": "nodemon indexer.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.15.0",
+    "express": "^4.21.1",
+    "pg": "^8.13.1",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  }
+}
+
