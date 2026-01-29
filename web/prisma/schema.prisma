@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  wallet    Wallet?
+}
+
+model Wallet {
+  id        String   @id @default(cuid())
+  address   String   @unique
+  chainId   Int
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?  @unique
+  createdAt DateTime @default(now())
+}
+
+model StrategyRecommendation {
+  id         String   @id @default(cuid())
+  walletAddr String
+  profile    String
+  allocation Json
+  rationale  String
+  createdAt  DateTime @default(now())
+}
+
+model BetPool {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  tokenId     Int      @unique
+  totalStake  Decimal  @db.Decimal(78, 0)
+  status      String // open | resolved
+  createdAt   DateTime @default(now())
+}
+
+model BetShareTrade {
+  id        String   @id @default(cuid())
+  tokenId   Int
+  from      String?
+  to        String
+  amount    Decimal  @db.Decimal(78, 0)
+  createdAt DateTime @default(now())
+}
+
+model TransferLog {
+  id        String   @id @default(cuid())
+  from      String
+  to        String
+  token     String // USDC address
+  amount    Decimal  @db.Decimal(78, 0)
+  txHash    String?
+  createdAt DateTime @default(now())
+}
+
+model Prediction {
+  id          BigInt   @id
+  parentId    BigInt?  @default(0)
+  creator     String?
+  pool        String?
+  collateral  Decimal  @db.Decimal(78, 0)
+  loanAmount  Decimal  @db.Decimal(78, 0)
+  leverageBps Int?
+  deadline    BigInt?
+  resolved    Boolean  @default(false)
+  outcome     Boolean?
+  roundId     BigInt?
+  lastPrice   Decimal? @db.Decimal(78, 0)
+  priceTarget Decimal? @db.Decimal(78, 0)
+  priceFeed   String?
+  liquidated  Boolean  @default(false)
+  health      Decimal? @db.Decimal(10, 2)
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@index([parentId])
+  @@index([creator])
+  @@index([resolved])
+  @@map("predictions")
+}

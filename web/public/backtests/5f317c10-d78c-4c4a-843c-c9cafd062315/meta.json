@@ -1,0 +1,1 @@
+{"backtest_id": "5f317c10-d78c-4c4a-843c-c9cafd062315", "symbol": "ETHUSDT", "interval": "1h", "params": {"fast": 20, "slow": 50}, "prediction_id": "59", "csv_path": "C:\\Users\\kumar\\OneDrive\\Desktop\\DefiMosaic\\web\\public\\backtests\\5f317c10-d78c-4c4a-843c-c9cafd062315\\trades.csv"}
