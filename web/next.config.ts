@@ -2,17 +2,15 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // Allow server-side packages
-  serverExternalPackages: ['child_process'],
+  serverExternalPackages: ['child_process', 'pino-pretty'],
 
   // ESLint config for build
   eslint: {
-    // Don't fail build on lint errors (we can fix later)
     ignoreDuringBuilds: true,
   },
 
   // TypeScript config for build  
   typescript: {
-    // Don't fail build on type errors (we can fix later)
     ignoreBuildErrors: true,
   },
 
@@ -24,6 +22,26 @@ const nextConfig: NextConfig = {
         hostname: '**',
       },
     ],
+  },
+
+  // Webpack config to handle react-native modules from MetaMask SDK
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Provide fallbacks for react-native modules used by MetaMask SDK
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        '@react-native-async-storage/async-storage': false,
+        'react-native': false,
+      };
+    }
+
+    // Ignore pino-pretty optional dependency warning
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'pino-pretty': 'pino-pretty',
+    };
+
+    return config;
   },
 };
 
