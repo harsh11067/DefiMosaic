@@ -1,0 +1,1 @@
+{"backtest_id": "8c9d6adb-5154-42ba-981c-fb863df22c67", "symbol": "ETHUSDT", "interval": "1h", "params": {"fast": 20, "slow": 50}, "prediction_id": "123", "csv_path": "output\\8c9d6adb-5154-42ba-981c-fb863df22c67\\trades.csv"}
