@@ -47,8 +47,13 @@ export default function StrategyAnalytics({
     winRate: 0,
     avgTradePnl: 0,
     totalTrades: 0,
-    totalPnl: 0
+    totalPnl: 0,
+    profitFactor: 0,
+    maxConsecLosses: 0,
+    rsiNow: 0,
+    macdHist: 0
   });
+  const [equity, setEquity] = useState<{ label: string; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Fetch candles
@@ -150,34 +155,113 @@ export default function StrategyAnalytics({
     return bb;
   };
 
+  // RSI(14) — Wilder's smoothing over real closes
+  const calculateRSI = (data: Candle[], period: number = 14) => {
+    const rsi: number[] = [];
+    let avgGain = 0;
+    let avgLoss = 0;
+    for (let i = 0; i < data.length; i++) {
+      if (i === 0) { rsi.push(NaN); continue; }
+      const change = data[i].close - data[i - 1].close;
+      const gain = Math.max(0, change);
+      const loss = Math.max(0, -change);
+      if (i <= period) {
+        avgGain += gain / period;
+        avgLoss += loss / period;
+        rsi.push(NaN);
+      } else {
+        avgGain = (avgGain * (period - 1) + gain) / period;
+        avgLoss = (avgLoss * (period - 1) + loss) / period;
+        rsi.push(avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss));
+      }
+    }
+    return rsi;
+  };
+
+  // MACD(12, 26, 9) — momentum histogram
+  const calculateMACD = (data: Candle[]) => {
+    const ema = (period: number) => {
+      const k = 2 / (period + 1);
+      const out: number[] = [];
+      let prev = data[0]?.close ?? 0;
+      for (let i = 0; i < data.length; i++) {
+        prev = i === 0 ? data[0].close : data[i].close * k + prev * (1 - k);
+        out.push(prev);
+      }
+      return out;
+    };
+    const fast = ema(12);
+    const slow = ema(26);
+    const macdLine = fast.map((f, i) => f - slow[i]);
+    const k = 2 / 10;
+    const signal: number[] = [];
+    let prev = macdLine[0] ?? 0;
+    for (let i = 0; i < macdLine.length; i++) {
+      prev = i === 0 ? macdLine[0] : macdLine[i] * k + prev * (1 - k);
+      signal.push(prev);
+    }
+    return macdLine.map((m, i) => m - signal[i]); // histogram
+  };
+
   // Calculate metrics
   const calculateMetrics = (candleData: Candle[]) => {
     if (candleData.length < 2) return;
 
-    // Mock trades for demonstration (replace with actual trade data)
-    const mockTrades: Trade[] = [];
+    // Real EMA(12)/SMA(20) crossover signals computed over the actual candles:
+    // enter long when EMA12 crosses above SMA20, exit when it crosses back below.
+    // P&L is the genuine close-to-close move of each round trip.
+    const smaLine = calculateSMA(candleData, 20);
+    const emaLine = calculateEMA(candleData, 12);
+    const signalTrades: Trade[] = [];
     let totalPnl = 0;
     let wins = 0;
-    
+    let entryPrice: number | null = null;
+
     for (let i = 1; i < candleData.length; i++) {
-      if (Math.random() > 0.95) { // 5% chance of trade
-        const prevClose = candleData[i - 1].close;
-        const currentClose = candleData[i].close;
-        const pnl = currentClose - prevClose;
+      if (isNaN(smaLine[i]) || isNaN(smaLine[i - 1])) continue;
+      const crossedUp = emaLine[i - 1] <= smaLine[i - 1] && emaLine[i] > smaLine[i];
+      const crossedDown = emaLine[i - 1] >= smaLine[i - 1] && emaLine[i] < smaLine[i];
+
+      if (crossedUp && entryPrice === null) {
+        entryPrice = candleData[i].close;
+        signalTrades.push({ time: candleData[i].time, price: entryPrice, type: 'buy', amount: 1, pnl: 0 });
+      } else if (crossedDown && entryPrice !== null) {
+        const exitPrice = candleData[i].close;
+        const pnl = exitPrice - entryPrice;
         totalPnl += pnl;
         if (pnl > 0) wins++;
-        
-        mockTrades.push({
-          time: candleData[i].time,
-          price: currentClose,
-          type: pnl > 0 ? 'buy' : 'sell',
-          amount: 1,
-          pnl
-        });
+        signalTrades.push({ time: candleData[i].time, price: exitPrice, type: 'sell', amount: 1, pnl });
+        entryPrice = null;
       }
     }
-    
-    setTrades(mockTrades);
+
+    const closedTrades = signalTrades.filter(t => t.type === 'sell');
+    setTrades(signalTrades);
+
+    // Equity curve of the crossover strategy (cumulative real P&L per round trip)
+    let cum = 0;
+    const curve = closedTrades.map((t, i) => {
+      cum += t.pnl ?? 0;
+      return { label: `#${i + 1}`, value: Number(cum.toFixed(2)) };
+    });
+    setEquity([{ label: "start", value: 0 }, ...curve]);
+
+    // Profit factor + worst losing streak
+    const grossWin = closedTrades.filter(t => (t.pnl ?? 0) > 0).reduce((s, t) => s + (t.pnl ?? 0), 0);
+    const grossLoss = Math.abs(closedTrades.filter(t => (t.pnl ?? 0) < 0).reduce((s, t) => s + (t.pnl ?? 0), 0));
+    const profitFactor = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? Infinity : 0;
+    let consec = 0;
+    let maxConsecLosses = 0;
+    for (const t of closedTrades) {
+      consec = (t.pnl ?? 0) < 0 ? consec + 1 : 0;
+      maxConsecLosses = Math.max(maxConsecLosses, consec);
+    }
+
+    // Live momentum snapshot
+    const rsiSeries = calculateRSI(candleData, 14);
+    const macdSeries = calculateMACD(candleData);
+    const rsiNow = rsiSeries[rsiSeries.length - 1];
+    const macdHist = macdSeries[macdSeries.length - 1];
 
     // Calculate Sharpe ratio (simplified)
     const returns = candleData.slice(1).map((c, i) => (c.close - candleData[i].close) / candleData[i].close);
@@ -198,10 +282,14 @@ export default function StrategyAnalytics({
     setMetrics({
       sharpe: sharpe || 0,
       maxDrawdown: maxDrawdown * 100,
-      winRate: mockTrades.length > 0 ? (wins / mockTrades.length) * 100 : 0,
-      avgTradePnl: mockTrades.length > 0 ? totalPnl / mockTrades.length : 0,
-      totalTrades: mockTrades.length,
-      totalPnl
+      winRate: closedTrades.length > 0 ? (wins / closedTrades.length) * 100 : 0,
+      avgTradePnl: closedTrades.length > 0 ? totalPnl / closedTrades.length : 0,
+      totalTrades: closedTrades.length,
+      totalPnl,
+      profitFactor: Number.isFinite(profitFactor) ? profitFactor : 99,
+      maxConsecLosses,
+      rsiNow: Number.isFinite(rsiNow) ? rsiNow : 50,
+      macdHist: Number.isFinite(macdHist) ? macdHist : 0
     });
   };
 
@@ -505,6 +593,54 @@ export default function StrategyAnalytics({
                   ${metrics.totalPnl.toFixed(2)}
                 </div>
               </div>
+              <div>
+                <div className="text-sm text-gray-400">Profit Factor</div>
+                <div className={`text-xl font-bold ${metrics.profitFactor >= 1 ? 'text-green-400' : 'text-red-400'}`}>
+                  {metrics.profitFactor >= 99 ? '∞' : metrics.profitFactor.toFixed(2)}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-400">Worst Losing Streak</div>
+                <div className="text-xl font-bold text-orange-400">{metrics.maxConsecLosses}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-400">RSI(14) now</div>
+                <div className={`text-xl font-bold ${
+                  metrics.rsiNow >= 70 ? 'text-red-400' : metrics.rsiNow <= 30 ? 'text-green-400' : 'text-white'
+                }`}>
+                  {metrics.rsiNow.toFixed(1)}
+                  <span className="text-xs font-normal text-gray-500 ml-2">
+                    {metrics.rsiNow >= 70 ? 'overbought' : metrics.rsiNow <= 30 ? 'oversold' : 'neutral'}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-400">MACD momentum</div>
+                <div className={`text-xl font-bold ${metrics.macdHist >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {metrics.macdHist >= 0 ? '▲ bullish' : '▼ bearish'}
+                  <span className="text-xs font-normal text-gray-500 ml-2">{metrics.macdHist.toFixed(2)}</span>
+                </div>
+              </div>
+              {/* Equity curve of the crossover strategy */}
+              {equity.length > 1 && (
+                <div className="pt-2 border-t border-white/10">
+                  <div className="text-sm text-gray-400 mb-2">Equity Curve (crossover strategy)</div>
+                  <ResponsiveContainer width="100%" height={110}>
+                    <ComposedChart data={equity}>
+                      <Area
+                        type="monotone"
+                        dataKey="value"
+                        stroke={equity[equity.length - 1].value >= 0 ? '#34d399' : '#f87171'}
+                        fill={equity[equity.length - 1].value >= 0 ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)'}
+                      />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', color: '#fff', fontSize: 12 }}
+                        formatter={(v: any) => [`$${v}`, 'cum. P&L']}
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
           </div>
         </div>

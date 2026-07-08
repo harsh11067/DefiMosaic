@@ -67,3 +67,4 @@ Thumbs.db
 # -------------------------
 *.log
 *.tsbuildinfo
+contracts/my-smart-wallets-app/

@@ -18,7 +18,6 @@ export async function POST(request: Request) {
           ? `${new Date(candles[0].time * 1000).toISOString()} to ${new Date(candles[candles.length - 1].time * 1000).toISOString()}`
           : 'N/A'
       },
-      metrics: metrics,
       recentTrades: trades?.slice(-20) || []
     };
 

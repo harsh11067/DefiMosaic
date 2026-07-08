@@ -7,13 +7,14 @@ import { BetPoolFactoryAbi } from "@/abi/BetPoolFactory";
 import { BetPoolAbi } from "@/abi/BetPool";
 import { IERC20Abi } from "@/abi/IERC20";
 import { CONTRACT_ADDRESSES, isContractDeployed } from "@/config/contracts";
+import { awardPoints } from "@/lib/points";
 import { motion } from "framer-motion";
 import { PlusIcon, ChartBarIcon, CurrencyDollarIcon } from "@heroicons/react/24/outline";
 import PriceWatcher from "@/components/PriceWatcher";
 import CryptoPriceCards from "@/components/CryptoPriceCards";
 import CascadingPredictions from "@/components/CascadingPredictions";
 import ETHPriceDisplay from "@/components/ETHPriceDisplay";
-import SurgeBoost from "@/components/SurgeBoost";
+import MarketPulse from "@/components/MarketPulse";
 
 export default function BetsPage() {
   const { address } = useAccount();
@@ -66,6 +67,7 @@ export default function BetsPage() {
   useEffect(() => {
     if (isConfirmed) {
       setStatus(`✅ Pool created successfully! Transaction: ${hash}`);
+      awardPoints("create_pool");
       // Reset form after successful creation
       setPriceTarget("1800");
       setPolAmount("0.0001");
@@ -116,18 +118,6 @@ export default function BetsPage() {
     return `${diffMins}m`;
   };
 
-  async function sendMicro(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setStatus("Sending...");
-    const res = await fetch("/api/micropayments/transfer", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to, amount, token: "USDC" }),
-    });
-    const data = await res.json();
-    setStatus(data.ok ? "Sent (stub). Integrate on-chain next." : `Error: ${data.error}`);
-  }
-
   // Show loading skeleton until client-side hydration is complete
   if (!mounted) {
     return (
@@ -148,18 +138,42 @@ export default function BetsPage() {
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-          Prediction Markets
-        </h1>
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="space-y-1">
+          <span className="section-chip">
+            <ChartBarIcon className="h-3.5 w-3.5" /> On-chain
+          </span>
+          <h1 className="text-3xl md:text-4xl font-bold">
+            Live <span className="text-gradient-animated">Markets</span>
+          </h1>
+          <p className="text-sm text-gray-400">Oracle-settled pools · real POL · real outcomes.</p>
+        </div>
         <button
           onClick={() => setShowCreatePool(!showCreatePool)}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all"
+          className="btn-primary"
         >
           <PlusIcon className="h-5 w-5" />
-          Create Pool
+          Open a Pool
         </button>
       </div>
+
+      {/* Newbie ribbon: paper vs real */}
+      <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/[0.06] p-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-gray-300">
+          <span className="font-semibold text-white">New here?</span> Practice with your{" "}
+          <span className="text-cyan-300 font-semibold">500 XP</span> paper bankroll in the Arena — or grab
+          free test POL from the faucet and trade these on-chain pools for the real feel.
+        </p>
+        <div className="flex gap-2">
+          <a href="https://faucet.polygon.technology/" target="_blank" rel="noopener noreferrer" className="btn-ghost text-xs px-3 py-1.5">
+            Get test POL ↗
+          </a>
+          <a href="/arena" className="btn-primary text-xs px-3 py-1.5">⚔️ Practice free</a>
+        </div>
+      </div>
+
+      {/* Market Pulse — live whole-market heatmap */}
+      <MarketPulse />
 
       {/* ETH Price */}
       <ETHPriceDisplay />
@@ -419,8 +433,6 @@ export default function BetsPage() {
         oracleAddress={CONTRACT_ADDRESSES.MockOracle}
       />
 
-      {/* SurgeBoost */}
-      <SurgeBoost />
 
       {/* Active Pools */}
       <section className="space-y-4">

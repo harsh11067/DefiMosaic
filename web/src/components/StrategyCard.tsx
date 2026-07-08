@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 interface StrategyCardProps {
   strategy: {
     id: number;
+    uniqueId?: string;
     name: string;
     description: string;
     creator: string;
@@ -69,7 +70,14 @@ export default function StrategyCard({
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
-          <h3 className="text-xl font-semibold text-white mb-1">{strategy.name}</h3>
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="text-xl font-semibold text-white">{strategy.name}</h3>
+            {strategy.uniqueId && (
+              <span className="px-2 py-0.5 text-xs bg-blue-600/20 text-blue-300 border border-blue-500/40 rounded">
+                ID: {strategy.uniqueId}
+              </span>
+            )}
+          </div>
           <p className="text-sm text-gray-400 mb-2">{strategy.description}</p>
           <div className="flex items-center gap-2 text-xs text-gray-500">
             <span>Creator:</span>

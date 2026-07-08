@@ -64,6 +64,42 @@ interface Strategy {
 
 type TabType = 'overview' | 'trade-history' | 'positions' | 'performance';
 
+interface BtTrade {
+  time: string;
+  side: 'buy' | 'sell';
+  price: number;
+  size: number;
+  fee: number;
+  pnl?: number;
+}
+
+interface BtResult {
+  symbol: string;
+  interval: string;
+  fast: number;
+  slow: number;
+  metrics: {
+    totalTrades: number;
+    winRate: number;
+    totalPnl: number;
+    maxDrawdown: number;
+    sharpe: number;
+    profitFactor: number;
+    strategyReturnPct: number;
+    buyHoldReturnPct: number;
+    beatsBuyHold: boolean;
+  };
+  trades: BtTrade[];
+}
+
+// Each strategy runs a live backtest of its real benchmark profile —
+// the tabs below are genuine engine output over real Binance history.
+const STRATEGY_PROFILES: Record<number, { symbol: string; interval: string; fast: number; slow: number }> = {
+  1: { symbol: 'ETHUSDT', interval: '1h', fast: 10, slow: 30 },  // Aggressive Growth
+  2: { symbol: 'BTCUSDT', interval: '4h', fast: 20, slow: 50 },  // Conservative Yield
+};
+const DEFAULT_PROFILE = { symbol: 'BTCUSDT', interval: '1h', fast: 20, slow: 50 };
+
 export default function ManageStrategyPage() {
   const params = useParams();
   const router = useRouter();
@@ -74,6 +110,32 @@ export default function ManageStrategyPage() {
   const [strategy, setStrategy] = useState<Strategy | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [loading, setLoading] = useState(true);
+  const [bt, setBt] = useState<BtResult | null>(null);
+
+  // Live engine run: real Binance history through the crossover backtester
+  useEffect(() => {
+    if (!strategyId) return;
+    const profile = STRATEGY_PROFILES[strategyId] ?? DEFAULT_PROFILE;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/backtest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(profile),
+        });
+        if (!r.ok) return;
+        const data = await r.json();
+        if (!cancelled && data.ok) {
+          setBt({ ...profile, metrics: data.metrics, trades: data.trades ?? [] });
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [strategyId]);
+
+  const fmtTradeTime = (iso: string) =>
+    new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   useEffect(() => {
     async function fetchStrategy() {
@@ -122,20 +184,27 @@ export default function ManageStrategyPage() {
         return;
       }
 
-      // For newly created strategies (timestamp-based IDs), create a basic strategy object
-      // This allows the page to work even if the strategy wasn't created via contract
+      // For newly created strategies (timestamp-based IDs), look up the real
+      // details persisted by the create flow in localStorage
       if (strategyId > 1000000000000) { // Timestamp-based IDs are large numbers
+        let created: any = null;
+        try {
+          const stored = localStorage.getItem('newlyCreatedStrategies');
+          if (stored) {
+            created = (JSON.parse(stored) as any[]).find((s) => s.id === strategyId) ?? null;
+          }
+        } catch {}
         setStrategy({
           id: strategyId,
-          name: `Strategy ${strategyId}`,
-          description: 'Newly created strategy',
-          creator: address || '0x0000000000000000000000000000000000000000',
-          feeBPS: 200,
-          totalFollowers: 0,
-          totalGains: 0,
-          todayGains: 0,
-          totalValueLocked: 0,
-          createdAt: Math.floor(Date.now() / 1000),
+          name: created?.name || `Strategy ${strategyId}`,
+          description: created?.description || 'Newly created strategy',
+          creator: created?.creator || address || '0x0000000000000000000000000000000000000000',
+          feeBPS: created?.feeBPS ?? 200,
+          totalFollowers: created?.totalFollowers ?? 0,
+          totalGains: created?.totalGains ?? 0,
+          todayGains: created?.todayGains ?? 0,
+          totalValueLocked: created?.totalValueLocked ?? 0,
+          createdAt: Math.floor(strategyId / 1000),
           maxDrawdown: 0,
           winRate: 0
         });
@@ -205,7 +274,7 @@ export default function ManageStrategyPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-white text-xl">Loading...</div>
       </div>
     );
@@ -213,7 +282,7 @@ export default function ManageStrategyPage() {
 
   if (!strategy) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-white text-xl">Strategy not found</div>
       </div>
     );
@@ -230,7 +299,7 @@ export default function ManageStrategyPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-6">
+    <div className="min-h-screen text-white p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
@@ -314,11 +383,11 @@ export default function ManageStrategyPage() {
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">
                 <div className="h-6 w-6 text-orange-400">🎯</div>
-                <div className="text-xs text-gray-400">Sharpe Ratio</div>
+                <div className="text-xs text-gray-400">Sharpe Ratio (live engine)</div>
               </div>
-              <div className="text-xs text-green-400">+68.50%</div>
+              {bt && <div className="text-xs text-green-400">{bt.metrics.winRate.toFixed(1)}% WR</div>}
             </div>
-            <div className="text-2xl font-bold text-white">1.45</div>
+            <div className="text-2xl font-bold text-white">{bt ? bt.metrics.sharpe.toFixed(2) : '…'}</div>
           </motion.div>
         </div>
 
@@ -363,7 +432,7 @@ export default function ManageStrategyPage() {
                     </div>
                     <div>
                       <span className="text-gray-400">Max Drawdown:</span>
-                      <span className="text-red-400 ml-2">{strategy.maxDrawdown.toFixed(2)}%</span>
+                      <span className="text-red-400 ml-2">{bt ? `-${bt.metrics.maxDrawdown.toFixed(2)}%` : '…'}</span>
                     </div>
                     <div>
                       <span className="text-gray-400">Performance Fee:</span>
@@ -371,7 +440,7 @@ export default function ManageStrategyPage() {
                     </div>
                     <div>
                       <span className="text-gray-400">Win Rate:</span>
-                      <span className="text-green-400 ml-2">+{strategy.winRate.toFixed(2)}%</span>
+                      <span className="text-green-400 ml-2">{bt ? `${bt.metrics.winRate.toFixed(1)}%` : '…'}</span>
                     </div>
                   </div>
                 </motion.div>
@@ -381,34 +450,36 @@ export default function ManageStrategyPage() {
                   animate={{ opacity: 1 }}
                   className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 rounded-xl p-6 border border-white/10"
                 >
-                  <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
+                  <h3 className="text-lg font-semibold mb-1">Recent Signals</h3>
+                  {bt && (
+                    <p className="text-xs text-gray-500 mb-4">
+                      Live engine: SMA {bt.fast}/{bt.slow} crossover on {bt.symbol} {bt.interval} — real Binance history.
+                    </p>
+                  )}
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <ArrowTrendingUpIcon className="h-5 w-5 text-green-400" />
-                        <div>
-                          <div className="text-sm font-medium text-white">BUY TETH</div>
-                          <div className="text-xs text-gray-400">Sep 28, 07:21 AM</div>
+                    {!bt ? (
+                      <div className="h-24 shimmer rounded-lg" />
+                    ) : bt.trades.length === 0 ? (
+                      <p className="text-sm text-gray-500">No signals in the current window.</p>
+                    ) : (
+                      bt.trades.slice(-4).reverse().map((t, i) => (
+                        <div key={i} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <ArrowTrendingUpIcon className={`h-5 w-5 ${t.side === 'buy' ? 'text-green-400' : 'text-red-400 rotate-180'}`} />
+                            <div>
+                              <div className="text-sm font-medium text-white">{t.side.toUpperCase()} {bt.symbol.replace('USDT', '')}</div>
+                              <div className="text-xs text-gray-400">{fmtTradeTime(t.time)}</div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className={`text-sm font-medium ${t.side === 'sell' ? ((t.pnl ?? 0) >= 0 ? 'text-green-400' : 'text-red-400') : 'text-white'}`}>
+                              {t.side === 'sell' ? `${(t.pnl ?? 0) >= 0 ? '+' : ''}$${(t.pnl ?? 0).toFixed(2)}` : `@ $${t.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+                            </div>
+                            <div className="text-xs text-gray-400">{t.size.toFixed(5)} {bt.symbol.replace('USDT', '')}</div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-medium text-green-400">+$45.67</div>
-                        <div className="text-xs text-gray-400">1000 TUSD</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <ArrowTrendingUpIcon className="h-5 w-5 text-red-400 rotate-180" />
-                        <div>
-                          <div className="text-sm font-medium text-white">SELL TUSDC</div>
-                          <div className="text-xs text-gray-400">Sep 28, 06:21 AM</div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-medium text-red-400">-$12.34</div>
-                        <div className="text-xs text-gray-400">0.2 TETH</div>
-                      </div>
-                    </div>
+                      ))
+                    )}
                   </div>
                 </motion.div>
               </>
@@ -420,35 +491,41 @@ export default function ManageStrategyPage() {
                 animate={{ opacity: 1 }}
                 className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 rounded-xl p-6 border border-white/10"
               >
-                <h3 className="text-lg font-semibold mb-4">Trade History</h3>
+                <h3 className="text-lg font-semibold mb-1">Trade History</h3>
+                {bt && (
+                  <p className="text-xs text-gray-500 mb-4">
+                    Every row is real engine output — SMA {bt.fast}/{bt.slow} on {bt.symbol} {bt.interval}, actual market prices, 0.1% fees.
+                  </p>
+                )}
                 <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-white/10">
-                        <th className="text-left py-3 text-sm text-gray-400">Time</th>
-                        <th className="text-left py-3 text-sm text-gray-400">Type</th>
-                        <th className="text-left py-3 text-sm text-gray-400">Pair</th>
-                        <th className="text-left py-3 text-sm text-gray-400">Amount</th>
-                        <th className="text-right py-3 text-sm text-gray-400">P&L</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="border-b border-white/5">
-                        <td className="py-3 text-sm text-white">Sep 28, 07:21 AM</td>
-                        <td className="py-3 text-sm text-green-400">BUY</td>
-                        <td className="py-3 text-sm text-white">TETH/USDC</td>
-                        <td className="py-3 text-sm text-white">1000 TUSD</td>
-                        <td className="py-3 text-sm text-right text-green-400">+$45.67</td>
-                      </tr>
-                      <tr className="border-b border-white/5">
-                        <td className="py-3 text-sm text-white">Sep 28, 06:21 AM</td>
-                        <td className="py-3 text-sm text-red-400">SELL</td>
-                        <td className="py-3 text-sm text-white">TUSDC/ETH</td>
-                        <td className="py-3 text-sm text-white">0.2 TETH</td>
-                        <td className="py-3 text-sm text-right text-red-400">-$12.34</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  {!bt ? (
+                    <div className="h-40 shimmer rounded-lg" />
+                  ) : (
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-white/10">
+                          <th className="text-left py-3 text-sm text-gray-400">Time</th>
+                          <th className="text-left py-3 text-sm text-gray-400">Type</th>
+                          <th className="text-left py-3 text-sm text-gray-400">Pair</th>
+                          <th className="text-left py-3 text-sm text-gray-400">Price</th>
+                          <th className="text-right py-3 text-sm text-gray-400">P&L</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bt.trades.slice(-16).reverse().map((t, i) => (
+                          <tr key={i} className="border-b border-white/5">
+                            <td className="py-3 text-sm text-white">{fmtTradeTime(t.time)}</td>
+                            <td className={`py-3 text-sm font-medium ${t.side === 'buy' ? 'text-green-400' : 'text-red-400'}`}>{t.side.toUpperCase()}</td>
+                            <td className="py-3 text-sm text-white">{bt.symbol.replace('USDT', '/USDT')}</td>
+                            <td className="py-3 text-sm text-white">${t.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                            <td className={`py-3 text-sm text-right ${t.side === 'sell' ? ((t.pnl ?? 0) >= 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-500'}`}>
+                              {t.side === 'sell' ? `${(t.pnl ?? 0) >= 0 ? '+' : ''}$${(t.pnl ?? 0).toFixed(2)}` : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -459,15 +536,37 @@ export default function ManageStrategyPage() {
                 animate={{ opacity: 1 }}
                 className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 rounded-xl p-6 border border-white/10"
               >
-                <h3 className="text-lg font-semibold mb-4">Open Positions</h3>
+                <h3 className="text-lg font-semibold mb-1">Recent Positions</h3>
+                {bt && (
+                  <p className="text-xs text-gray-500 mb-4">
+                    Latest round trips of the live engine on {bt.symbol} {bt.interval} — real entries, real exits.
+                  </p>
+                )}
                 <div className="space-y-3">
-                  <div className="p-4 bg-white/5 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-sm font-medium text-white">TETH/USDC</div>
-                      <div className="text-sm text-green-400">+5.2%</div>
-                    </div>
-                    <div className="text-xs text-gray-400">Position: 1000 TUSD</div>
-                  </div>
+                  {!bt ? (
+                    <div className="h-24 shimmer rounded-lg" />
+                  ) : (
+                    (() => {
+                      const sells = bt.trades.filter((t) => t.side === 'sell').slice(-3).reverse();
+                      if (sells.length === 0) return <p className="text-sm text-gray-500">No completed positions in the current window.</p>;
+                      return sells.map((t, i) => {
+                        const pct = t.pnl !== undefined && t.price > 0 ? (t.pnl / (t.price * t.size - t.pnl)) * 100 : 0;
+                        return (
+                          <div key={i} className="p-4 bg-white/5 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="text-sm font-medium text-white">{bt.symbol.replace('USDT', '/USDT')} · closed {fmtTradeTime(t.time)}</div>
+                              <div className={`text-sm font-semibold ${(t.pnl ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {(t.pnl ?? 0) >= 0 ? '+' : ''}{pct.toFixed(2)}%
+                              </div>
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              Size {t.size.toFixed(5)} · exit ${t.price.toLocaleString(undefined, { maximumFractionDigits: 2 })} · P&L {(t.pnl ?? 0) >= 0 ? '+' : ''}${(t.pnl ?? 0).toFixed(2)}
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()
+                  )}
                 </div>
               </motion.div>
             )}
@@ -478,25 +577,52 @@ export default function ManageStrategyPage() {
                 animate={{ opacity: 1 }}
                 className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 rounded-xl p-6 border border-white/10"
               >
-                <h3 className="text-lg font-semibold mb-4">Performance Metrics</h3>
-                <div className="space-y-4">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Total Return</span>
-                    <span className="text-white font-semibold">+{((strategy.totalGains / strategy.totalValueLocked) * 100).toFixed(2)}%</span>
+                <h3 className="text-lg font-semibold mb-1">Performance Metrics</h3>
+                {bt && (
+                  <p className="text-xs text-gray-500 mb-4">
+                    Live backtest over the last 1000 real {bt.interval} candles of {bt.symbol}.
+                  </p>
+                )}
+                {!bt ? (
+                  <div className="h-40 shimmer rounded-lg" />
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Strategy Return</span>
+                      <span className={`font-semibold ${bt.metrics.strategyReturnPct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {bt.metrics.strategyReturnPct >= 0 ? '+' : ''}{bt.metrics.strategyReturnPct.toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">vs Buy &amp; Hold</span>
+                      <span className={`font-semibold ${bt.metrics.beatsBuyHold ? 'text-green-400' : 'text-amber-400'}`}>
+                        {bt.metrics.buyHoldReturnPct >= 0 ? '+' : ''}{bt.metrics.buyHoldReturnPct.toFixed(2)}% {bt.metrics.beatsBuyHold ? '(beaten ✓)' : '(not beaten)'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Sharpe Ratio</span>
+                      <span className="text-white font-semibold">{bt.metrics.sharpe.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Max Drawdown</span>
+                      <span className="text-red-400 font-semibold">-{bt.metrics.maxDrawdown.toFixed(2)}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Win Rate</span>
+                      <span className="text-green-400 font-semibold">{bt.metrics.winRate.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Profit Factor</span>
+                      <span className={`font-semibold ${bt.metrics.profitFactor >= 1 ? 'text-green-400' : 'text-red-400'}`}>
+                        {bt.metrics.profitFactor >= 99 ? '∞' : bt.metrics.profitFactor.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Round Trips</span>
+                      <span className="text-white font-semibold">{bt.metrics.totalTrades}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Sharpe Ratio</span>
-                    <span className="text-white font-semibold">1.45</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Max Drawdown</span>
-                    <span className="text-red-400 font-semibold">-8.20%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Win Rate</span>
-                    <span className="text-green-400 font-semibold">68.50%</span>
-                  </div>
-                </div>
+                )}
               </motion.div>
             )}
           </div>

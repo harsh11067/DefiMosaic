@@ -35,8 +35,6 @@ export default function WalletProvider({ children }: { children: ReactNode }) {
           modalSize="compact"
           appInfo={{
             appName: "DeFiMosaic",
-            learnMoreUrl: "https://vercel.com/templates?framework=next.js",
-            walletConnectProjectId: WALLETCONNECT_PROJECT_ID,
           }}
         >
           {children}

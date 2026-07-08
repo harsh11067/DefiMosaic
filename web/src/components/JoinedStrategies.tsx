@@ -43,10 +43,15 @@ export default function JoinedStrategies({ strategies }: JoinedStrategiesProps) 
 
   return (
     <div className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 rounded-xl p-6 border border-white/10">
-      <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-        <CheckCircleIcon className="h-6 w-6 text-green-400" />
-        Joined Strategies
-      </h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <CheckCircleIcon className="h-6 w-6 text-green-400" />
+          Joined Strategies
+        </h2>
+        {strategies.length > 0 && (
+          <span className="text-xs text-gray-400">Showing 3 most recent</span>
+        )}
+      </div>
 
       {strategies.length === 0 ? (
         <div className="text-center py-12">

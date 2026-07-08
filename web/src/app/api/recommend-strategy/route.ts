@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import fetch from "node-fetch";
 import { ethers } from "ethers";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 // --- Config: your strategy universe (id must match schema used by model)
 const STRATEGIES = [
@@ -151,6 +152,37 @@ const functionSchema = {
   }
 };
 
+// Deterministic fallback used when no OpenAI API key is configured or the
+// AI call fails — keeps the dashboard's "Recommend Strategy" flow working.
+function buildFallbackRecommendation(risk: string) {
+  const allocationsByRisk: Record<string, Array<{ strategyId: string; percent: number; reason: string; category: string }>> = {
+    low: [
+      { strategyId: "aave_stable", percent: 40, reason: "Stable lending interest with minimal volatility", category: "Stable Crypto" },
+      { strategyId: "curve_stable_lp", percent: 35, reason: "Stable trading fees from low-IL pools", category: "Stable Crypto" },
+      { strategyId: "stake_validator", percent: 25, reason: "Reliable staking rewards as a growth kicker", category: "Growing Crypto" }
+    ],
+    medium: [
+      { strategyId: "aave_stable", percent: 25, reason: "Low-risk anchor for the portfolio", category: "Stable Crypto" },
+      { strategyId: "stake_validator", percent: 30, reason: "Steady staking yield with moderate upside", category: "Growing Crypto" },
+      { strategyId: "uni_eth_usdc_lp", percent: 30, reason: "Higher fee income with managed IL exposure", category: "Growing Crypto" },
+      { strategyId: "yield_aggregator", percent: 15, reason: "Auto-compounding boost for extra yield", category: "Growing Crypto" }
+    ],
+    high: [
+      { strategyId: "aave_stable", percent: 10, reason: "Minimum low-risk anchor", category: "Stable Crypto" },
+      { strategyId: "uni_eth_usdc_lp", percent: 25, reason: "Concentrated liquidity fees", category: "Growing Crypto" },
+      { strategyId: "yield_aggregator", percent: 35, reason: "Aggressive auto-compounding vault strategies", category: "Growing Crypto" },
+      { strategyId: "pendle", percent: 30, reason: "Leveraged yield trading for maximum upside", category: "Growing Crypto" }
+    ]
+  };
+  const profile = ["low", "medium", "high"].includes(risk) ? risk : "medium";
+  return {
+    riskProfile: profile,
+    allocations: allocationsByRisk[profile],
+    childBetSuggestions: [],
+    notes: `Rule-based ${profile}-risk allocation: diversified across lending, staking and LP strategies with at least one low-risk anchor. (AI recommendations unavailable — using built-in allocator.)`
+  };
+}
+
 // --- Utility: build strategies text including live APY and suggested "why for this user"
 // We build a clear context for the model including user balances, so it can weight allocations
 function buildContextText(risk: string, apyMap: Record<string, number>, balanceContext: any) {
@@ -214,41 +246,51 @@ export async function POST(req: NextRequest) {
     const risk = body.risk || "medium";
     const context = buildContextText(risk, apyMap, balanceContext);
 
-    // 4) call OpenAI with function calling
-    const messages = [
-      { role: "system", content: "You are a DeFi portfolio recommendation assistant. Output only valid JSON via the function call." },
-      { role: "user", content: context }
-    ];
+    // 4) call OpenAI with function calling; fall back to the rule-based
+    //    allocator when no API key is configured or the AI call fails
+    let parsed: any;
+    if (openai) {
+      try {
+        const messages = [
+          { role: "system" as const, content: "You are a DeFi portfolio recommendation assistant. Output only valid JSON via the function call." },
+          { role: "user" as const, content: context }
+        ];
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages,
-      tools: [
-        {
-          type: "function",
-          function: functionSchema
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages,
+          tools: [
+            {
+              type: "function",
+              function: functionSchema
+            }
+          ],
+          // force model to choose the function
+          tool_choice: { type: "function", function: { name: "recommend_portfolio" } },
+          temperature: 0.0,
+          max_tokens: 500
+        });
+
+        // extract function call result
+        const toolCalls = completion?.choices?.[0]?.message?.tool_calls;
+        let toolOutputText: string | null = null;
+        if (toolCalls && toolCalls[0] && (toolCalls[0] as any).function) {
+          toolOutputText = (toolCalls[0] as any).function.arguments;
+        } else if (completion?.choices?.[0]?.message?.content) {
+          // fallback if function-calling wasn't used (shouldn't happen)
+          toolOutputText = completion.choices[0].message.content;
+        } else {
+          throw new Error("No function-calling output from model");
         }
-      ],
-      // force model to choose the function
-      tool_choice: { type: "function", function: { name: "recommend_portfolio" } },
-      temperature: 0.0,
-      max_tokens: 500
-    });
 
-    // extract function call result
-    const toolCalls = completion?.choices?.[0]?.message?.tool_calls ?? completion?.choices?.[0]?.message?.tool_call;
-    let toolOutputText = null;
-    if (toolCalls && toolCalls[0] && toolCalls[0].function) {
-      toolOutputText = toolCalls[0].function.arguments;
-    } else if (completion?.choices?.[0]?.message?.content) {
-      // fallback if function-calling wasn't used (shouldn't happen)
-      toolOutputText = completion.choices[0].message.content;
+        parsed = JSON.parse(toolOutputText!);
+      } catch (aiError: any) {
+        console.warn("OpenAI recommendation failed, using rule-based fallback:", aiError?.message);
+        parsed = buildFallbackRecommendation(risk);
+      }
     } else {
-      throw new Error("No function-calling output from model");
+      parsed = buildFallbackRecommendation(risk);
     }
-
-    // parse JSON
-    const parsed = JSON.parse(toolOutputText);
 
     // Normalize allocation percentages to sum to 100 (integers)
     let allocs = parsed.allocations || [];

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { ArrowDownTrayIcon, DocumentArrowDownIcon, PlayIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, PlayIcon, ScaleIcon } from '@heroicons/react/24/outline';
 
 interface BacktestMetrics {
   totalTrades: number;
@@ -13,6 +13,10 @@ interface BacktestMetrics {
   maxDrawdown: number | null;
   sharpe: number | null;
   finalEquity: number | null;
+  profitFactor: number | null;
+  strategyReturnPct: number | null;
+  buyHoldReturnPct: number | null;
+  beatsBuyHold: boolean;
 }
 
 interface BacktesterProps {
@@ -28,7 +32,6 @@ export default function Backtester({ strategyId }: BacktesterProps) {
   const [metrics, setMetrics] = useState<BacktestMetrics | null>(null);
   const [equity, setEquity] = useState<{ time: number; value: number }[]>([]);
   const [trades, setTrades] = useState<any[]>([]);
-  const [equityChart, setEquityChart] = useState<string | null>(null);
 
   // helper to safely format numbers (prevents .toFixed on null/undefined)
   const formatNumber = (value: number | null | undefined, digits = 2) => {
@@ -82,10 +85,13 @@ export default function Backtester({ strategyId }: BacktesterProps) {
           maxDrawdown: m.maxDrawdown ?? 0,
           sharpe: m.sharpe ?? 0,
           finalEquity: m.finalEquity ?? 0,
+          profitFactor: m.profitFactor ?? 0,
+          strategyReturnPct: m.strategyReturnPct ?? 0,
+          buyHoldReturnPct: m.buyHoldReturnPct ?? 0,
+          beatsBuyHold: !!m.beatsBuyHold,
         });
         setEquity(data.equity ?? []);
         setTrades(data.trades ?? []);
-        setEquityChart(data.equityChart ?? null);
       } else {
         alert('Backtest failed: ' + (data.error || 'Unknown error'));
       }
@@ -114,36 +120,6 @@ export default function Backtester({ strategyId }: BacktesterProps) {
     a.download = `backtest-trades-${symbol}-${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  };
-
-  const exportPDF = async () => {
-    try {
-      const response = await fetch('/api/backtest/export-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symbol,
-          metrics,
-          trades,
-          equity,
-        }),
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `backtest-report-${symbol}-${Date.now()}.pdf`;
-        a.click();
-        URL.revokeObjectURL(url);
-      } else {
-        alert('Failed to generate PDF');
-      }
-    } catch (error) {
-      console.error('Export PDF error:', error);
-      alert('Failed to export PDF');
-    }
   };
 
   return (
@@ -259,6 +235,37 @@ export default function Backtester({ strategyId }: BacktesterProps) {
               <div className="text-sm text-gray-400">Losses</div>
               <div className="text-2xl font-bold text-red-400">{metrics.losses}</div>
             </div>
+            <div className="bg-gray-800/50 border border-white/10 rounded-lg p-4">
+              <div className="text-sm text-gray-400">Profit Factor</div>
+              <div className={`text-2xl font-bold ${(metrics.profitFactor ?? 0) >= 1 ? 'text-green-400' : 'text-red-400'}`}>
+                {(metrics.profitFactor ?? 0) >= 99 ? '∞' : formatNumber(metrics.profitFactor, 2)}
+              </div>
+            </div>
+            <div className="bg-gray-800/50 border border-white/10 rounded-lg p-4">
+              <div className="text-sm text-gray-400">Strategy Return</div>
+              <div className={`text-2xl font-bold ${(metrics.strategyReturnPct ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {formatNumber(metrics.strategyReturnPct, 1)}%
+              </div>
+            </div>
+          </div>
+
+          {/* Honesty benchmark: did the strategy actually beat holding? */}
+          <div className={`rounded-xl border p-4 flex items-center gap-3 ${
+            metrics.beatsBuyHold
+              ? 'border-emerald-500/40 bg-emerald-500/10'
+              : 'border-amber-500/40 bg-amber-500/10'
+          }`}>
+            <ScaleIcon className={`h-6 w-6 flex-shrink-0 ${metrics.beatsBuyHold ? 'text-emerald-300' : 'text-amber-300'}`} />
+            <p className="text-sm">
+              <span className="font-semibold text-white">
+                {metrics.beatsBuyHold ? 'Edge confirmed:' : 'Reality check:'}
+              </span>{' '}
+              <span className="text-gray-300">
+                this strategy returned <span className="font-semibold">{formatNumber(metrics.strategyReturnPct, 1)}%</span> vs{' '}
+                <span className="font-semibold">{formatNumber(metrics.buyHoldReturnPct, 1)}%</span> for simply buying and holding {symbol} over the same window.
+                {metrics.beatsBuyHold ? " It beat the market." : " Holding would have done better — that is the honest answer."}
+              </span>
+            </p>
           </div>
 
           {/* Equity Curve Chart */}
@@ -273,19 +280,8 @@ export default function Backtester({ strategyId }: BacktesterProps) {
                   <ArrowDownTrayIcon className="h-5 w-5" />
                   Export CSV
                 </button>
-                <button
-                  onClick={exportPDF}
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                >
-                  <DocumentArrowDownIcon className="h-5 w-5" />
-                  Export PDF
-                </button>
               </div>
             </div>
-
-            {equityChart && (
-              <img src={equityChart} alt="Equity Curve" className="w-full mb-4" />
-            )}
 
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={equity}>

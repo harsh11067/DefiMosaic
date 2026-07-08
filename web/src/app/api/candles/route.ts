@@ -6,9 +6,13 @@ export async function GET(request: Request) {
     const symbol = searchParams.get('symbol') || 'BTCUSDT';
     const interval = searchParams.get('interval') || '1h';
     const limit = parseInt(searchParams.get('limit') || '500');
-    
+    const startTime = searchParams.get('startTime'); // optional epoch ms — enables historical windows (Time Machine)
+
     // Binance klines API
-    const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+    let url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+    if (startTime && Number.isFinite(Number(startTime))) {
+      url += `&startTime=${Number(startTime)}`;
+    }
     const r = await fetch(url);
     
     if (!r.ok) {

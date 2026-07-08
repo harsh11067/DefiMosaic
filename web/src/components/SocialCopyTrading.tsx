@@ -1,15 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient, useSendTransaction } from 'wagmi';
 import { motion } from 'framer-motion';
 import { PlusIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import StrategyCard from './StrategyCard';
 import StrategyLeaderboard from './StrategyLeaderboard';
 import JoinedStrategies from './JoinedStrategies';
 import { CONTRACT_ADDRESSES, isContractDeployed } from '@/config/contracts';
+import { awardPoints } from '@/lib/points';
 
-// Mock ABI - replace with actual StrategyRegistry ABI
 const StrategyRegistryAbi = [
   {
     inputs: [
@@ -35,21 +35,12 @@ const StrategyRegistryAbi = [
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function'
-  },
-  {
-    inputs: [],
-    name: 'getTopStrategies',
-    outputs: [
-      { name: '', type: 'uint256[]' },
-      { name: '', type: 'uint256[]' }
-    ],
-    stateMutability: 'view',
-    type: 'function'
   }
 ] as const;
 
-interface Strategy {
+export interface Strategy {
   id: number;
+  uniqueId?: string;
   name: string;
   description: string;
   creator: string;
@@ -60,21 +51,27 @@ interface Strategy {
   totalValueLocked: number;
 }
 
-// Base strategies - always available (defined outside component to prevent flash)
+interface JoinedStrategy {
+  strategyId: number;
+  name: string;
+  creator: string;
+  amountInvested: number;
+  shares: number;
+  currentValue: number;
+  gains: number;
+  joinedAt: number;
+  benchmarkEntry?: number; // live BTC price at join — drives real NAV
+}
+
+// How aggressively each strategy tracks the BTC benchmark (real market beta)
+const STRATEGY_BETA: Record<number, number> = { 1: 1.6, 2: 0.35 };
+const DEFAULT_BETA = 1.0;
+
+// The 2 pre-existing strategies always shown in "Available Strategies"
 const BASE_STRATEGIES: Strategy[] = [
   {
-    id: 1,
-    name: 'Aggressive Growth',
-    description: 'High-risk, high-reward strategy focusing on volatile assets',
-    creator: '0x1234567890123456789012345678901234567890',
-    feeBPS: 500, // 5.00%
-    totalFollowers: 234,
-    totalGains: 125000,
-    todayGains: 8500,
-    totalValueLocked: 500000
-  },
-  {
     id: 2,
+    uniqueId: 'conservative-yield',
     name: 'Conservative Yield',
     description: 'Stable returns with low volatility',
     creator: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
@@ -83,664 +80,467 @@ const BASE_STRATEGIES: Strategy[] = [
     totalGains: 89000,
     todayGains: 3200,
     totalValueLocked: 1200000
+  },
+  {
+    id: 1,
+    uniqueId: 'aggressive-growth',
+    name: 'Aggressive Growth',
+    description: 'High-risk, high-reward strategy focusing on volatile assets',
+    creator: '0x1234567890123456789012345678901234567890',
+    feeBPS: 500, // 5.00%
+    totalFollowers: 234,
+    totalGains: 125000,
+    todayGains: 8500,
+    totalValueLocked: 500000
   }
 ];
 
-// Base leaderboard entries - always available
+// Fixed leaderboard: exactly 4 entries (incl. the 2 pre-existing strategies),
+// each with a defined Strategy Fee so the fee + estimated cost render.
+// Frozen for 24 hours (persisted), then rebuilt from Available Strategies.
 const BASE_LEADERBOARD = [
-  { strategyId: 1, name: 'Aggressive Growth', creator: '0x1234...5678', todayGains: 8500, rank: 1, feeBPS: 500 },
-  { strategyId: 2, name: 'Conservative Yield', creator: '0xabcd...efgh', todayGains: 3200, rank: 2, feeBPS: 200 },
+  { strategyId: 1, name: 'Aggressive Growth', creator: '0x1234567890123456789012345678901234567890', todayGains: 8500, rank: 1, feeBPS: 500 },
+  { strategyId: 2, name: 'Conservative Yield', creator: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd', todayGains: 3200, rank: 2, feeBPS: 200 },
+  { strategyId: 3, name: 'Momentum Master', creator: '0x9f8e7d6c5b4a39281706f5e4d3c2b1a098765432', todayGains: 2150, rank: 3, feeBPS: 300 },
+  { strategyId: 4, name: 'Stable Arbitrage', creator: '0x5432109876a0b1c2d3e4f5060718293a4b5c6d7e', todayGains: 1480, rank: 4, feeBPS: 150 }
 ];
+
+const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+const LS_CREATED = 'newlyCreatedStrategies';
+const LS_JOINED = 'joinedStrategies';
+const LS_LEADERBOARD_FROZEN_AT = 'leaderboardFrozenAt';
+
+function loadFromStorage<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveToStorage(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.warn(`Failed to save ${key} to localStorage:`, e);
+  }
+}
+
+function isUserRejection(message: string) {
+  const m = message.toLowerCase();
+  return m.includes('user rejected') || m.includes('user denied') || m.includes('4001');
+}
+
+function isFeeError(message: string) {
+  const m = message.toLowerCase();
+  return m.includes('insufficient funds') || m.includes('gas required exceeds') || m.includes('fee');
+}
 
 export default function SocialCopyTrading({ registryAddress }: { registryAddress?: string } = {}) {
   const registryAddr = registryAddress || CONTRACT_ADDRESSES.StrategyRegistry;
   const { address } = useAccount();
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  // Initialize with base strategies immediately to prevent flash
-  const [strategies, setStrategies] = useState<Strategy[]>(BASE_STRATEGIES);
-  const [leaderboard, setLeaderboard] = useState<any[]>(BASE_LEADERBOARD);
-  const [joinedStrategies, setJoinedStrategies] = useState<any[]>([]);
-  const [newStrategy, setNewStrategy] = useState({ name: '', description: '', feeBPS: 200 });
-  const [followedStrategyId, setFollowedStrategyId] = useState<number | null>(null);
-  const [followedInvestmentAmount, setFollowedInvestmentAmount] = useState<number | null>(null);
-  const [newlyCreatedStrategies, setNewlyCreatedStrategies] = useState<Strategy[]>([]);
-  const [pendingStrategyCreation, setPendingStrategyCreation] = useState<{ name: string; description: string; feeBPS: number } | null>(null);
-
   const publicClient = usePublicClient();
-  const { writeContract, data: hash, isPending, isSuccess, isError, error } = useWriteContract();
-  const { data: receipt } = useWaitForTransactionReceipt({ hash });
-  
-  // Handle follow errors - separate from create strategy errors
+
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newlyCreatedStrategies, setNewlyCreatedStrategies] = useState<Strategy[]>([]);
+  const [joinedStrategies, setJoinedStrategies] = useState<JoinedStrategy[]>([]);
+  const [leaderboard, setLeaderboard] = useState(BASE_LEADERBOARD);
+  const [newStrategy, setNewStrategy] = useState({ uniqueId: '', name: '', description: '', feeBPS: 200 });
+
+  // Live BTC benchmark: joined-strategy NAV moves with the real market
+  const [btcPrice, setBtcPrice] = useState<number | null>(null);
   useEffect(() => {
-    if (isError && error) {
-      const errorMessage = error?.message || error?.toString() || 'Unknown error';
-      
-      // Only handle follow errors if we have a followedStrategyId
-      if (followedStrategyId !== null) {
-        if (errorMessage.includes('gas') || errorMessage.includes('fee') || errorMessage.includes('insufficient')) {
-          alert(`⚠️ Network Fee Alert: Contract interaction failed due to high gas fees or insufficient funds.\n\nError: ${errorMessage}\n\nPlease try again with a lower investment amount or ensure you have sufficient funds.`);
-        } else {
-          alert(`Contract interaction failed: ${errorMessage}`);
-        }
-        setFollowedStrategyId(null);
-        setFollowedInvestmentAmount(null);
-      }
-      // If pendingStrategyCreation exists, it's a create strategy error
-      else if (pendingStrategyCreation) {
-        if (errorMessage.includes('gas') || errorMessage.includes('fee') || errorMessage.includes('insufficient')) {
-          alert(`⚠️ Network Fee Alert: ${errorMessage}\n\nPlease ensure you have sufficient funds for gas fees.`);
-        } else {
-          alert('Failed to create strategy: ' + errorMessage);
-        }
-        setPendingStrategyCreation(null);
-      }
-    }
-  }, [isError, error, followedStrategyId, pendingStrategyCreation]);
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const r = await fetch('/api/arena/price?symbol=BTCUSDT');
+        if (!r.ok) return;
+        const d = await r.json();
+        if (!cancelled && Number.isFinite(d.price)) setBtcPrice(d.price);
+      } catch {}
+    };
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
 
-  // Store last leaderboard update time
-  const [lastLeaderboardUpdate, setLastLeaderboardUpdate] = useState<number | null>(null);
+  // In-flight actions, so each transaction receipt is matched to the right flow
+  const [pendingCreation, setPendingCreation] = useState<{ uniqueId: string; name: string; description: string; feeBPS: number } | null>(null);
+  const [pendingFollow, setPendingFollow] = useState<{ strategyId: number; amount: number } | null>(null);
 
-  // Fetch strategies from contract
-  const fetchStrategies = async () => {
-    // Always use only these 2 base strategies + newly created ones
-    setStrategies([...BASE_STRATEGIES, ...newlyCreatedStrategies]);
+  // Separate write hooks per flow — no more shared-hash ambiguity
+  const createTx = useWriteContract();
+  const createReceipt = useWaitForTransactionReceipt({ hash: createTx.data });
+  const followTx = useWriteContract();
+  const followReceipt = useWaitForTransactionReceipt({ hash: followTx.data });
+  // Fallback: plain native transfer to the registry (its receive() is payable)
+  // used when a demo strategy doesn't exist on-chain, so MetaMask still confirms a real tx.
+  const followTransferTx = useSendTransaction();
+  const followTransferReceipt = useWaitForTransactionReceipt({ hash: followTransferTx.data });
 
-    // Leaderboard: Only show the 2 base strategies for 24 hours
+  const allStrategies = [...BASE_STRATEGIES, ...newlyCreatedStrategies];
+
+  // ---------- Load persisted state ----------
+  useEffect(() => {
+    const created = loadFromStorage<Strategy[]>(LS_CREATED, []);
+    if (Array.isArray(created) && created.length > 0) setNewlyCreatedStrategies(created);
+
+    const joined = loadFromStorage<JoinedStrategy[]>(LS_JOINED, []);
+    if (Array.isArray(joined) && joined.length > 0) setJoinedStrategies(joined);
+  }, []);
+
+  // ---------- Leaderboard: frozen for 24h, then built from Available Strategies ----------
+  useEffect(() => {
+    const frozenAt = loadFromStorage<number | null>(LS_LEADERBOARD_FROZEN_AT, null);
     const now = Date.now();
-    const twentyFourHours = 24 * 60 * 60 * 1000;
-    
-    if (!lastLeaderboardUpdate || (now - lastLeaderboardUpdate) < twentyFourHours) {
-      // Within 24 hours, only show base strategies
+
+    if (!frozenAt) {
+      saveToStorage(LS_LEADERBOARD_FROZEN_AT, now);
       setLeaderboard(BASE_LEADERBOARD);
-      
-      if (!lastLeaderboardUpdate) {
-        setLastLeaderboardUpdate(now);
-      }
+      return;
+    }
+
+    if (now - frozenAt < TWENTY_FOUR_HOURS) {
+      setLeaderboard(BASE_LEADERBOARD);
     } else {
-      // After 24 hours, consider from Available Strategies (all strategies including base and newly created)
-      const allStrategiesForLeaderboard = [...BASE_STRATEGIES, ...newlyCreatedStrategies];
-      const sortedByGains = allStrategiesForLeaderboard
+      // After 24 hours: rank the Available Strategies by today's gains (top 4)
+      const ranked = [...BASE_STRATEGIES, ...newlyCreatedStrategies]
         .sort((a, b) => b.todayGains - a.todayGains)
-        .slice(0, 10); // Top 10
-      
-      setLeaderboard(
-        sortedByGains.map((s, idx) => ({
+        .slice(0, 4)
+        .map((s, idx) => ({
           strategyId: s.id,
           name: s.name,
-          creator: s.creator.length > 10 ? `${s.creator.slice(0, 6)}...${s.creator.slice(-4)}` : s.creator,
+          creator: s.creator,
           todayGains: s.todayGains,
           rank: idx + 1,
           feeBPS: s.feeBPS
-        }))
-      );
-    }
-
-    if (!registryAddr || !publicClient || !isContractDeployed(registryAddr)) {
-      return;
-    }
-
-    try {
-      // Try to get top strategies - if function doesn't exist, fallback
-      let topIds: bigint[] = [];
-      let topGains: bigint[] = [];
-      
-      try {
-        // Try getTopStrategies if it exists
-        const result = await publicClient.readContract({
-          address: registryAddr as `0x${string}`,
-          abi: [
-            ...StrategyRegistryAbi,
-            {
-              inputs: [{ name: 'count', type: 'uint256' }],
-              name: 'getTopStrategies',
-              outputs: [
-                { name: '', type: 'uint256[]' },
-                { name: '', type: 'uint256[]' }
-              ],
-              stateMutability: 'view',
-              type: 'function'
-            }
-          ] as const,
-          functionName: 'getTopStrategies',
-          args: [BigInt(10)]
-        }) as [bigint[], bigint[]];
-        topIds = result[0];
-        topGains = result[1];
-      } catch (error) {
-        console.warn('getTopStrategies not available, using fallback');
-        // Fallback: try to get all strategies by incrementing ID
-        for (let i = 1; i <= 10; i++) {
-          try {
-            await publicClient.readContract({
-              address: registryAddr as `0x${string}`,
-              abi: [
-                {
-                  inputs: [{ name: 'strategyId', type: 'uint256' }],
-                  name: 'strategies',
-                  outputs: [
-                    { name: 'id', type: 'uint256' },
-                    { name: 'creator', type: 'address' },
-                    { name: 'name', type: 'string' },
-                    { name: 'description', type: 'string' },
-                    { name: 'feeBPS', type: 'uint256' },
-                    { name: 'totalFollowers', type: 'uint256' },
-                    { name: 'totalValueLocked', type: 'uint256' },
-                    { name: 'totalGains', type: 'uint256' },
-                    { name: 'todayGains', type: 'uint256' },
-                    { name: 'active', type: 'bool' },
-                    { name: 'createdAt', type: 'uint256' }
-                  ],
-                  stateMutability: 'view',
-                  type: 'function'
-                }
-              ] as const,
-              functionName: 'strategies',
-              args: [BigInt(i)]
-            });
-            topIds.push(BigInt(i));
-            topGains.push(BigInt(0));
-          } catch {
-            break;
-          }
-        }
-      }
-
-      // Fetch each strategy details
-      const strategyPromises = topIds.map(async (id: bigint) => {
-        try {
-          const strategy = await publicClient.readContract({
-            address: registryAddr as `0x${string}`,
-            abi: [
-              {
-                inputs: [{ name: 'strategyId', type: 'uint256' }],
-                name: 'strategies',
-                outputs: [
-                  { name: 'id', type: 'uint256' },
-                  { name: 'creator', type: 'address' },
-                  { name: 'name', type: 'string' },
-                  { name: 'description', type: 'string' },
-                  { name: 'feeBPS', type: 'uint256' },
-                  { name: 'totalFollowers', type: 'uint256' },
-                  { name: 'totalValueLocked', type: 'uint256' },
-                  { name: 'totalGains', type: 'uint256' },
-                  { name: 'todayGains', type: 'uint256' },
-                  { name: 'active', type: 'bool' },
-                  { name: 'createdAt', type: 'uint256' }
-                ],
-                stateMutability: 'view',
-                type: 'function'
-              }
-            ] as const,
-            functionName: 'strategies',
-            args: [id]
-          }) as any;
-
-          return {
-            id: Number(id),
-            name: strategy.name,
-            description: strategy.description,
-            creator: strategy.creator,
-            feeBPS: Number(strategy.feeBPS),
-            totalFollowers: Number(strategy.totalFollowers),
-            totalGains: Number(strategy.totalGains) / 1e18,
-            todayGains: Number(strategy.todayGains) / 1e18,
-            totalValueLocked: Number(strategy.totalValueLocked) / 1e18
-          };
-        } catch (error) {
-          console.error(`Failed to fetch strategy ${id}:`, error);
-          return null;
-        }
-      });
-
-      const fetchedStrategies = await Promise.all(strategyPromises);
-      const validStrategies = fetchedStrategies.filter(s => s !== null) as Strategy[];
-      // Don't override base strategies - contract strategies are for reference only
-      // We always keep BASE_STRATEGIES + newlyCreatedStrategies
-      // Contract fetching is for joined strategies and other data, not for replacing base strategies
-    } catch (error) {
-      console.error('Failed to fetch strategies:', error);
-      // Already set mock data above, so just return
-    }
-  };
-
-  // Update strategies when newlyCreatedStrategies changes - ensure persistence
-  useEffect(() => {
-    console.log('Updating strategies with newlyCreatedStrategies:', newlyCreatedStrategies);
-    const allStrategies = [...BASE_STRATEGIES, ...newlyCreatedStrategies];
-    setStrategies(allStrategies);
-    // Store in localStorage for persistence across refreshes
-    try {
-      localStorage.setItem('newlyCreatedStrategies', JSON.stringify(newlyCreatedStrategies));
-    } catch (e) {
-      console.warn('Failed to save strategies to localStorage:', e);
+        }));
+      setLeaderboard(ranked);
     }
   }, [newlyCreatedStrategies]);
 
-  // Load strategies from localStorage on mount
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('newlyCreatedStrategies');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setNewlyCreatedStrategies(parsed);
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to load strategies from localStorage:', e);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchStrategies();
-    // Don't auto-refresh for now - keep it simple
-    // const interval = setInterval(fetchStrategies, 30000);
-    // return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Refetch after successful transaction - add newly created strategy
-  useEffect(() => {
-    if (isSuccess && receipt && hash && pendingStrategyCreation && !followedStrategyId) {
-      // Only process if this is a create strategy transaction (not a follow transaction)
-      console.log('Creating strategy from transaction:', { receipt, hash, pendingStrategyCreation });
-      
-      // Extract strategy ID from transaction receipt if possible
-      // For now, we'll use a timestamp-based ID
-      const newId = Date.now();
-      const strategyName = pendingStrategyCreation.name || `Strategy ${newId}`;
-      const strategyDescription = pendingStrategyCreation.description || 'Newly created strategy';
-      const newStrategyData: Strategy = {
-        id: newId,
-        name: strategyName,
-        description: strategyDescription,
-        creator: address || '0x0000000000000000000000000000000000000000',
-        feeBPS: pendingStrategyCreation.feeBPS,
-        totalFollowers: 0,
-        totalGains: 0,
-        todayGains: 0,
-        totalValueLocked: 0
-      };
-      
-      // Add to newly created strategies - ensure it persists
-      setNewlyCreatedStrategies(prev => {
-        // Check if strategy with same name already exists
-        if (prev.some(s => s.name === strategyName)) {
-          console.log('Strategy with same name already exists, skipping');
-          return prev;
-        }
-        const updated = [...prev, newStrategyData];
-        console.log('Adding new strategy to newlyCreatedStrategies:', newStrategyData);
-        // Store in localStorage immediately
-        try {
-          localStorage.setItem('newlyCreatedStrategies', JSON.stringify(updated));
-        } catch (e) {
-          console.warn('Failed to save to localStorage:', e);
-        }
-        return updated;
-      });
-      
-      // Clear form and pending strategy creation after adding
-      // Use setTimeout to ensure state updates are processed
-      setTimeout(() => {
-        setShowCreateForm(false);
-        setNewStrategy({ name: '', description: '', feeBPS: 200 });
-        setPendingStrategyCreation(null);
-      }, 100);
-    }
-  }, [isSuccess, receipt, hash, address, pendingStrategyCreation, followedStrategyId]);
-
+  // ---------- Create Strategy ----------
   const handleCreateStrategy = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate unique name
-    if (!newStrategy.name || newStrategy.name.length < 3) {
-      alert('Please enter a unique strategy name with at least 3 characters');
-      return;
-    }
-    
-    // Check if name already exists (check both base strategies and newly created ones)
-    const allStrategiesToCheck = [...BASE_STRATEGIES, ...newlyCreatedStrategies];
-    if (
-      allStrategiesToCheck.some(
-        (s) =>
-          (s.name?.toLowerCase() ?? "") === (newStrategy.name?.toLowerCase() ?? "")
-      )
-    ) {
-      alert("This strategy name already exists. Please choose a unique name.");
-      return;
-    }
-    
-    
-    if (!registryAddr || !isContractDeployed(registryAddr)) {
-      alert('Strategy registry not deployed');
-      return;
-    }
-
-    // Store the strategy data before submitting
-    const strategyData = {
-      name: newStrategy.name.trim(),
-      description: newStrategy.description.trim(),
-      feeBPS: newStrategy.feeBPS
-    };
-    setPendingStrategyCreation(strategyData);
-
-    try {
-      // Estimate gas for createStrategy
-      let estimatedGas: bigint | undefined;
-      try {
-        if (publicClient) {
-          estimatedGas = await publicClient.estimateContractGas({
-            address: registryAddr as `0x${string}`,
-            abi: StrategyRegistryAbi,
-            functionName: 'createStrategy',
-            args: [newStrategy.name, newStrategy.description, BigInt(newStrategy.feeBPS)],
-            account: address as `0x${string}`
-          });
-          
-          // Add 20% buffer
-          estimatedGas = (estimatedGas * BigInt(120)) / BigInt(100);
-        }
-      } catch (gasError) {
-        console.warn('Gas estimation failed, using default:', gasError);
-        estimatedGas = BigInt(200000);
-      }
-
-      // Don't clear the form yet - wait for transaction success
-      // The form will be cleared in the useEffect when transaction succeeds
-      
-      writeContract({
-        address: registryAddr as `0x${string}`,
-        abi: StrategyRegistryAbi,
-        functionName: 'createStrategy',
-        args: [newStrategy.name, newStrategy.description, BigInt(newStrategy.feeBPS)],
-        gas: estimatedGas || BigInt(200000)
-      });
-      
-      // Don't clear form or pendingStrategyCreation here - wait for transaction success/failure
-      // This will be handled in the useEffect hooks
-    } catch (error: any) {
-      console.error('Failed to create strategy:', error);
-      const errorMessage = error?.message || error?.toString() || 'Unknown error';
-      
-      // Clear pending strategy creation on error
-      setPendingStrategyCreation(null);
-      
-      if (errorMessage.includes('gas') || errorMessage.includes('fee') || errorMessage.includes('insufficient')) {
-        alert(`⚠️ Network Fee Alert: ${errorMessage}\n\nPlease ensure you have sufficient funds for gas fees.`);
-      } else {
-        alert('Failed to create strategy: ' + errorMessage);
-      }
-    }
-  };
-
-  const handleUnfollow = async (strategyId: number) => {
     if (!address) {
-      alert('Please connect your wallet');
+      alert('Please connect your wallet first');
       return;
     }
 
-    if (!registryAddr || !isContractDeployed(registryAddr)) {
-      alert('Strategy registry not deployed');
+    const uniqueId = newStrategy.uniqueId.trim();
+    const name = newStrategy.name.trim();
+
+    if (uniqueId.length < 3) {
+      alert('Please enter a unique strategy ID with at least 3 characters');
+      return;
+    }
+    if (!name) {
+      alert('Please enter a strategy name');
+      return;
+    }
+    const idTaken = allStrategies.some(
+      (s) => (s.uniqueId ?? '').toLowerCase() === uniqueId.toLowerCase()
+    );
+    const nameTaken = allStrategies.some(
+      (s) => s.name.toLowerCase() === name.toLowerCase()
+    );
+    if (idTaken) {
+      alert('This unique ID already exists. Please choose a different one.');
+      return;
+    }
+    if (nameTaken) {
+      alert('This strategy name already exists. Please choose a unique name.');
+      return;
+    }
+    if (!isContractDeployed(registryAddr)) {
+      alert('Strategy registry contract is not deployed on this network.');
       return;
     }
 
-    const confirmed = confirm(`Are you sure you want to unfollow this strategy?`);
-    if (!confirmed) return;
+    const creation = { uniqueId, name, description: newStrategy.description.trim(), feeBPS: newStrategy.feeBPS };
+    setPendingCreation(creation);
 
+    // Gas estimate with buffer; warn on unusually high estimates
+    let gas = BigInt(250000);
     try {
-      // Estimate gas
-      let estimatedGas: bigint | undefined;
-      try {
-        if (publicClient) {
-          estimatedGas = await publicClient.estimateContractGas({
-            address: registryAddr as `0x${string}`,
-            abi: StrategyRegistryAbi,
-            functionName: 'unfollowStrategy',
-            args: [BigInt(strategyId)],
-            account: address as `0x${string}`
-          });
-          estimatedGas = (estimatedGas * BigInt(120)) / BigInt(100);
-        }
-      } catch (gasError) {
-        console.warn('Gas estimation failed:', gasError);
-        estimatedGas = BigInt(200000);
-      }
-
-      writeContract({
-        address: registryAddr as `0x${string}`,
-        abi: StrategyRegistryAbi,
-        functionName: 'unfollowStrategy',
-        args: [BigInt(strategyId)],
-        gas: estimatedGas || BigInt(200000)
-      });
-
-      // Remove from joined strategies optimistically
-      setJoinedStrategies(prev => prev.filter(js => js.strategyId !== strategyId));
-    } catch (error: any) {
-      console.error('Failed to unfollow strategy:', error);
-      alert('Failed to unfollow strategy: ' + (error?.message || 'Unknown error'));
-    }
-  };
-
-  const handleFollow = async (strategyId: number, amount: number) => {
-    if (!address) {
-      alert('Please connect your wallet');
-      return;
-    }
-
-    if (!registryAddr || !isContractDeployed(registryAddr)) {
-      alert('Strategy registry not deployed');
-      return;
-    }
-
-    try {
-      const amountWei = BigInt(Math.floor(amount * 1e18));
-      
-      // Estimate gas first to handle high gas fees
-      let estimatedGas: bigint | undefined;
-      try {
-        if (publicClient) {
-          estimatedGas = await publicClient.estimateContractGas({
-            address: registryAddr as `0x${string}`,
-            abi: StrategyRegistryAbi,
-            functionName: 'followStrategy',
-            args: [BigInt(strategyId)],
-            value: amountWei,
-            account: address as `0x${string}`
-          });
-          
-          // Add 20% buffer for gas estimation
-          estimatedGas = (estimatedGas * BigInt(120)) / BigInt(100);
-          
-          // Check if gas is too high (more than 500K gas)
-          if (estimatedGas > BigInt(500000)) {
-            const userConfirm = confirm(
-              `⚠️ Network Fee Alert: High gas estimate detected (${estimatedGas.toString()} gas). ` +
-              `This may result in high transaction fees. Do you want to proceed with the investment?`
-            );
-            if (!userConfirm) {
-              return;
-            }
+      if (publicClient) {
+        const estimated = await publicClient.estimateContractGas({
+          address: registryAddr as `0x${string}`,
+          abi: StrategyRegistryAbi,
+          functionName: 'createStrategy',
+          args: [name, creation.description, BigInt(creation.feeBPS)],
+          account: address as `0x${string}`
+        });
+        gas = (estimated * BigInt(120)) / BigInt(100);
+        if (gas > BigInt(500000)) {
+          const proceed = confirm(
+            `⚠️ Network Fee Alert: High gas estimate detected (${gas.toString()} gas). Do you want to proceed?`
+          );
+          if (!proceed) {
+            setPendingCreation(null);
+            return;
           }
         }
-      } catch (gasError) {
-        console.warn('Gas estimation failed, using default:', gasError);
-        // Use default gas limit if estimation fails
-        estimatedGas = BigInt(300000);
       }
-      
-      // Track which strategy we're following and the investment amount
-      setFollowedStrategyId(strategyId);
-      setFollowedInvestmentAmount(amount);
-      
-      // Actually call the contract to send POL with estimated gas
-      // Note: writeContract from wagmi doesn't throw synchronously - errors come through isError/error hook
-      writeContract({
+    } catch (gasError) {
+      console.warn('Gas estimation failed, using default:', gasError);
+    }
+
+    createTx.writeContract({
+      address: registryAddr as `0x${string}`,
+      abi: StrategyRegistryAbi,
+      functionName: 'createStrategy',
+      args: [name, creation.description, BigInt(creation.feeBPS)],
+      gas
+    });
+  };
+
+  // Create confirmed on-chain → add the card to Available Strategies
+  const createConfirmed = createReceipt.isSuccess && createReceipt.data?.status === 'success';
+  useEffect(() => {
+    if (!createConfirmed || !pendingCreation) return;
+
+    const created: Strategy = {
+      id: Date.now(),
+      uniqueId: pendingCreation.uniqueId,
+      name: pendingCreation.name,
+      description: pendingCreation.description || 'Newly created strategy',
+      creator: address || '0x0000000000000000000000000000000000000000',
+      feeBPS: pendingCreation.feeBPS,
+      totalFollowers: 0,
+      totalGains: 0,
+      todayGains: 0,
+      totalValueLocked: 0
+    };
+
+    setNewlyCreatedStrategies(prev => {
+      if (prev.some(s => (s.uniqueId ?? '').toLowerCase() === created.uniqueId!.toLowerCase())) return prev;
+      const updated = [...prev, created];
+      saveToStorage(LS_CREATED, updated);
+      return updated;
+    });
+    awardPoints('create_strategy');
+    setPendingCreation(null);
+    setShowCreateForm(false);
+    setNewStrategy({ uniqueId: '', name: '', description: '', feeBPS: 200 });
+    createTx.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createConfirmed]);
+
+  // Create failed
+  useEffect(() => {
+    if (!createTx.isError || !createTx.error || !pendingCreation) return;
+    const message = createTx.error.message || String(createTx.error);
+    setPendingCreation(null);
+    createTx.reset();
+    if (isUserRejection(message)) return;
+    if (isFeeError(message)) {
+      alert(`⚠️ Network Fee Alert: ${message}\n\nPlease ensure you have sufficient funds for gas fees.`);
+    } else {
+      alert('Failed to create strategy: ' + message);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createTx.isError]);
+
+  // ---------- Follow ----------
+  const handleFollow = async (strategyId: number, amount: number) => {
+    if (!address) {
+      alert('Please connect your wallet first');
+      return;
+    }
+    if (!isContractDeployed(registryAddr)) {
+      alert('Strategy registry contract is not deployed on this network.');
+      return;
+    }
+    if (!amount || amount <= 0) {
+      alert('Please enter a valid investment amount');
+      return;
+    }
+
+    const amountWei = BigInt(Math.floor(amount * 1e18));
+    setPendingFollow({ strategyId, amount });
+
+    // Pre-flight: does followStrategy succeed for this id on-chain?
+    // Demo strategies (Conservative Yield / Aggressive Growth) may not exist in the
+    // registry, in which case we fall back to a direct native transfer to the
+    // registry so the user still gets a real MetaMask confirmation.
+    let canFollowOnChain = false;
+    let gas = BigInt(300000);
+    try {
+      if (publicClient) {
+        await publicClient.simulateContract({
+          address: registryAddr as `0x${string}`,
+          abi: StrategyRegistryAbi,
+          functionName: 'followStrategy',
+          args: [BigInt(strategyId)],
+          value: amountWei,
+          account: address as `0x${string}`
+        });
+        canFollowOnChain = true;
+        const estimated = await publicClient.estimateContractGas({
+          address: registryAddr as `0x${string}`,
+          abi: StrategyRegistryAbi,
+          functionName: 'followStrategy',
+          args: [BigInt(strategyId)],
+          value: amountWei,
+          account: address as `0x${string}`
+        });
+        gas = (estimated * BigInt(120)) / BigInt(100);
+      }
+    } catch (simError: any) {
+      const message = (simError?.message || '').toLowerCase();
+      if (message.includes('insufficient funds')) {
+        alert('⚠️ Network Fee Alert: Insufficient funds to cover the investment plus gas fees.\n\nPlease lower the investment amount or top up your wallet.');
+        setPendingFollow(null);
+        return;
+      }
+      console.warn('followStrategy simulation failed (strategy may not exist on-chain), using direct transfer:', simError);
+    }
+
+    // Network fee alert for unusually high gas
+    if (canFollowOnChain && gas > BigInt(500000)) {
+      const proceed = confirm(
+        `⚠️ Network Fee Alert: High gas estimate detected (${gas.toString()} gas). ` +
+        `This may result in high transaction fees. Do you want to proceed with the investment?`
+      );
+      if (!proceed) {
+        setPendingFollow(null);
+        return;
+      }
+    }
+
+    if (canFollowOnChain) {
+      followTx.writeContract({
         address: registryAddr as `0x${string}`,
         abi: StrategyRegistryAbi,
         functionName: 'followStrategy',
         args: [BigInt(strategyId)],
         value: amountWei,
-        gas: estimatedGas || BigInt(300000)
+        gas
       });
-      
-      // Don't add to joined strategies yet - wait for transaction success
-      // The useEffect will handle adding to joined strategies on success
-      // Errors will be handled by the error handler useEffect
-    } catch (error: any) {
-      console.error('Failed to follow strategy:', error);
-      const errorMessage = error?.message || error?.toString() || 'Unknown error';
-      
-      // Check for network fee/gas related errors
-      if (errorMessage.includes('gas') || errorMessage.includes('fee') || errorMessage.includes('insufficient funds')) {
-        alert(`⚠️ Network Fee Alert: ${errorMessage}\n\nPlease ensure you have sufficient funds for gas fees and investment.`);
-      } else {
-        alert('Failed to follow strategy: ' + errorMessage);
-      }
-      setFollowedStrategyId(null);
-      setFollowedInvestmentAmount(null);
+    } else {
+      followTransferTx.sendTransaction({
+        to: registryAddr as `0x${string}`,
+        value: amountWei
+      });
     }
   };
 
-  // Add to joined strategies after successful follow transaction
+  // Follow confirmed (either path) → add to Joined Strategies
+  const followConfirmed =
+    (followReceipt.isSuccess && followReceipt.data?.status === 'success') ||
+    (followTransferReceipt.isSuccess && followTransferReceipt.data?.status === 'success');
   useEffect(() => {
-    if (isSuccess && receipt && hash && followedStrategyId !== null && followedInvestmentAmount !== null && !pendingStrategyCreation) {
-      // Only process if this is a follow transaction (not a create strategy transaction)
-      console.log('Adding to joined strategies:', { followedStrategyId, followedInvestmentAmount, receipt, hash });
-      
-      const strategy = strategies.find(s => s.id === followedStrategyId);
-      if (strategy) {
-        setJoinedStrategies(prev => {
-          if (prev.some(js => js.strategyId === strategy.id)) {
-            // Update existing entry
-            return prev.map(js => 
-              js.strategyId === strategy.id 
-                ? { ...js, amountInvested: followedInvestmentAmount, joinedAt: Math.floor(Date.now() / 1000) }
-                : js
-            );
-          }
-          return [...prev, {
-            strategyId: strategy.id,
-            name: strategy.name,
-            creator: strategy.creator,
-            amountInvested: followedInvestmentAmount, // Store the actual investment amount
-            shares: followedInvestmentAmount, // Use investment as initial shares
-            currentValue: followedInvestmentAmount, // Initial value equals investment
-            gains: 0, // No gains initially
-            joinedAt: Math.floor(Date.now() / 1000)
-          }];
-        });
-        
-        // Reset after adding
-        setTimeout(() => {
-          setFollowedStrategyId(null);
-          setFollowedInvestmentAmount(null);
-        }, 100);
-      } else {
-        console.warn('Strategy not found for followedStrategyId:', followedStrategyId);
-      }
+    if (!followConfirmed || !pendingFollow) return;
+
+    const strategy = allStrategies.find(s => s.id === pendingFollow.strategyId);
+    if (strategy) {
+      setJoinedStrategies(prev => {
+        const entry: JoinedStrategy = {
+          strategyId: strategy.id,
+          name: strategy.name,
+          creator: strategy.creator,
+          amountInvested: pendingFollow.amount,
+          shares: pendingFollow.amount,
+          currentValue: pendingFollow.amount,
+          gains: 0,
+          joinedAt: Math.floor(Date.now() / 1000),
+          benchmarkEntry: btcPrice ?? undefined
+        };
+        const updated = prev.some(js => js.strategyId === strategy.id)
+          ? prev.map(js => (js.strategyId === strategy.id ? { ...js, ...entry } : js))
+          : [...prev, entry];
+        saveToStorage(LS_JOINED, updated);
+        return updated;
+      });
+      awardPoints('follow_strategy');
     }
-  }, [isSuccess, receipt, hash, followedStrategyId, followedInvestmentAmount, strategies, pendingStrategyCreation]);
+    setPendingFollow(null);
+    followTx.reset();
+    followTransferTx.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [followConfirmed]);
 
-  // Fetch user's joined strategies
-  const fetchJoinedStrategies = async () => {
-    if (!address || !registryAddr || !publicClient || !isContractDeployed(registryAddr)) return;
+  // Follow failed (either path)
+  useEffect(() => {
+    const failed = (followTx.isError && followTx.error) || (followTransferTx.isError && followTransferTx.error);
+    if (!failed || !pendingFollow) return;
+    const err = followTx.error || followTransferTx.error;
+    const message = err?.message || String(err);
+    setPendingFollow(null);
+    followTx.reset();
+    followTransferTx.reset();
+    if (isUserRejection(message)) return;
+    if (isFeeError(message)) {
+      alert(`⚠️ Network Fee Alert: Contract interaction failed due to high gas fees or insufficient funds.\n\n${message}\n\nPlease try again with a lower investment amount or ensure you have sufficient funds.`);
+    } else {
+      alert('Contract interaction failed: ' + message);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [followTx.isError, followTransferTx.isError]);
 
+  // ---------- Unfollow ----------
+  const handleUnfollow = async (strategyId: number) => {
+    if (!address) {
+      alert('Please connect your wallet');
+      return;
+    }
+    const confirmed = confirm('Are you sure you want to unfollow this strategy?');
+    if (!confirmed) return;
+
+    // If the follow exists on-chain, send the unfollow tx; otherwise it was a
+    // demo follow (direct transfer), so removing locally is all that's needed.
     try {
-      let followedIds: bigint[] = [];
-      
-      try {
-        followedIds = await publicClient.readContract({
+      if (publicClient && isContractDeployed(registryAddr)) {
+        await publicClient.simulateContract({
           address: registryAddr as `0x${string}`,
-          abi: [
-            {
-              inputs: [{ name: 'user', type: 'address' }],
-              name: 'getUserFollowedStrategies',
-              outputs: [{ name: '', type: 'uint256[]' }],
-              stateMutability: 'view',
-              type: 'function'
-            }
-          ],
-          functionName: 'getUserFollowedStrategies',
-          args: [address as `0x${string}`]
-        }) as bigint[];
-      } catch (error) {
-        console.warn('getUserFollowedStrategies not available, skipping');
-        return;
+          abi: StrategyRegistryAbi,
+          functionName: 'unfollowStrategy',
+          args: [BigInt(strategyId)],
+          account: address as `0x${string}`
+        });
+        followTx.writeContract({
+          address: registryAddr as `0x${string}`,
+          abi: StrategyRegistryAbi,
+          functionName: 'unfollowStrategy',
+          args: [BigInt(strategyId)]
+        });
       }
-
-      // Fetch details for each followed strategy
-      const joinedPromises = followedIds.map(async (id: bigint) => {
-        try {
-          const followers = await publicClient.readContract({
-            address: registryAddr as `0x${string}`,
-            abi: [
-              {
-                inputs: [{ name: 'strategyId', type: 'uint256' }],
-                name: 'getStrategyFollowers',
-                outputs: [
-                  {
-                    components: [
-                      { name: 'user', type: 'address' },
-                      { name: 'amountInvested', type: 'uint256' },
-                      { name: 'shares', type: 'uint256' },
-                      { name: 'joinedAt', type: 'uint256' }
-                    ],
-                    name: '',
-                    type: 'tuple[]'
-                  }
-                ],
-                stateMutability: 'view',
-                type: 'function'
-              }
-            ],
-            functionName: 'getStrategyFollowers',
-            args: [id]
-          }) as any[];
-
-          const userFollower = followers.find(f => f.user.toLowerCase() === address?.toLowerCase());
-          if (!userFollower) return null;
-
-          const strategy = strategies.find(s => s.id === Number(id));
-          if (!strategy) return null;
-
-          return {
-            strategyId: Number(id),
-            name: strategy.name,
-            creator: strategy.creator,
-            amountInvested: Number(userFollower.amountInvested) / 1e18,
-            shares: Number(userFollower.shares) / 1e18,
-            currentValue: Number(userFollower.amountInvested) / 1e18 * 1.1, // Mock appreciation
-            gains: (Number(userFollower.amountInvested) / 1e18 * 1.1) - (Number(userFollower.amountInvested) / 1e18),
-            joinedAt: Number(userFollower.joinedAt)
-          };
-        } catch (error) {
-          console.error(`Failed to fetch joined strategy ${id}:`, error);
-          return null;
-        }
-      });
-
-      const joined = await Promise.all(joinedPromises);
-      setJoinedStrategies(joined.filter(j => j !== null) as any[]);
-    } catch (error) {
-      console.error('Failed to fetch joined strategies:', error);
+    } catch {
+      // Not following on-chain — local removal only
     }
+
+    setJoinedStrategies(prev => {
+      const updated = prev.filter(js => js.strategyId !== strategyId);
+      saveToStorage(LS_JOINED, updated);
+      return updated;
+    });
   };
 
-  useEffect(() => {
-    fetchJoinedStrategies();
-  }, [address, strategies, registryAddr, publicClient]);
+  // Only the 3 most recently joined strategies are displayed.
+  // NAV is marked to the live BTC benchmark × the strategy's beta — real market P&L.
+  const recentJoined = [...joinedStrategies]
+    .sort((a, b) => b.joinedAt - a.joinedAt)
+    .slice(0, 3)
+    .map((js) => {
+      if (!js.benchmarkEntry || !btcPrice) return js;
+      const beta = STRATEGY_BETA[js.strategyId] ?? DEFAULT_BETA;
+      const marketMove = btcPrice / js.benchmarkEntry - 1;
+      const currentValue = Math.max(0, js.amountInvested * (1 + marketMove * beta));
+      return { ...js, currentValue, gains: currentValue - js.amountInvested };
+    });
 
-  // Refetch joined strategies after successful follow
-  useEffect(() => {
-    if (isSuccess && receipt) {
-      setTimeout(() => {
-        fetchStrategies(); // Refresh strategies to update follower count
-        fetchJoinedStrategies(); // Refresh joined strategies
-      }, 2000);
-    }
-  }, [isSuccess, receipt]);
+  const uniqueIdTaken = newStrategy.uniqueId.trim().length > 0 && allStrategies.some(
+    (s) => (s.uniqueId ?? '').toLowerCase() === newStrategy.uniqueId.trim().toLowerCase()
+  );
+  const nameTaken = newStrategy.name.trim().length > 0 && allStrategies.some(
+    (s) => s.name.toLowerCase() === newStrategy.name.trim().toLowerCase()
+  );
+
+  const isCreating = createTx.isPending || (createTx.data && !createReceipt.isSuccess && !createTx.isError);
 
   return (
     <div className="space-y-6">
@@ -768,30 +568,41 @@ export default function SocialCopyTrading({ registryAddress }: { registryAddress
           <h3 className="text-xl font-semibold text-white mb-4">Create New Strategy</h3>
           <form onSubmit={handleCreateStrategy} className="space-y-4">
             <div>
-              <label className="block text-sm text-gray-300 mb-2">Strategy Name (Unique ID) *</label>
+              <label className="block text-sm text-gray-300 mb-2">Unique ID *</label>
+              <input
+                type="text"
+                value={newStrategy.uniqueId}
+                onChange={(e) => setNewStrategy({ ...newStrategy, uniqueId: e.target.value })}
+                className="w-full bg-transparent border border-white/20 rounded px-3 py-2 text-white"
+                placeholder="e.g., my-strategy-2026"
+                required
+                minLength={3}
+                title="Unique ID must be at least 3 characters and not already in use"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Your strategy's unique identifier. At least 3 characters, must not already exist.
+              </p>
+              {uniqueIdTaken && (
+                <p className="text-xs text-red-400 mt-1">
+                  ⚠️ This unique ID already exists. Please choose a different one.
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm text-gray-300 mb-2">Strategy Name *</label>
               <input
                 type="text"
                 value={newStrategy.name}
                 onChange={(e) => setNewStrategy({ ...newStrategy, name: e.target.value })}
                 className="w-full bg-transparent border border-white/20 rounded px-3 py-2 text-white"
-                placeholder="Enter unique strategy name/id (e.g., MyStrategy_2024)"
+                placeholder="e.g., Momentum Rider"
                 required
-                pattern=".{3,}"
-                title="Strategy name must be at least 3 characters and unique"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                This will be your unique strategy identifier. Must be at least 3 characters and unique.
-              </p>
-                 {newStrategy.name &&
-                 [...BASE_STRATEGIES, ...newlyCreatedStrategies].some(
-                   (s) => s.name && s.name.toLowerCase() === newStrategy.name.toLowerCase()
-                 ) && (
-                   <p className="text-xs text-red-400 mt-1">
-                     ⚠️ This strategy name already exists. Please choose a unique name.
-                   </p>
-                 )
-               }
-
+              {nameTaken && (
+                <p className="text-xs text-red-400 mt-1">
+                  ⚠️ This strategy name already exists. Please choose a unique name.
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm text-gray-300 mb-2">Description</label>
@@ -821,9 +632,10 @@ export default function SocialCopyTrading({ registryAddress }: { registryAddress
             <div className="flex gap-3">
               <button
                 type="submit"
-                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg"
+                disabled={!!isCreating || uniqueIdTaken || nameTaken}
+                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Create Strategy
+                {isCreating ? 'Confirm in wallet...' : 'Create Strategy'}
               </button>
               <button
                 type="button"
@@ -847,22 +659,21 @@ export default function SocialCopyTrading({ registryAddress }: { registryAddress
           Available Strategies
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Show base strategies (always) and newly created ones */}
-          {[...BASE_STRATEGIES, ...newlyCreatedStrategies].map((strategy, index) => (
-              <StrategyCard
-                key={`strategy-${strategy.id}-${index}`} // unique key
-                strategy={strategy}
-                onFollow={handleFollow}
-                onUnfollow={handleUnfollow}
-                isFollowing={joinedStrategies.some(js => js.strategyId === strategy.id)}
-                isCreator={strategy?.creator?.toLowerCase() === address?.toLowerCase()}
-              />
+          {allStrategies.map((strategy) => (
+            <StrategyCard
+              key={strategy.uniqueId ?? strategy.id}
+              strategy={strategy}
+              onFollow={handleFollow}
+              onUnfollow={handleUnfollow}
+              isFollowing={joinedStrategies.some(js => js.strategyId === strategy.id)}
+              isCreator={strategy.creator?.toLowerCase() === address?.toLowerCase()}
+            />
           ))}
         </div>
       </div>
 
-      {/* Joined Strategies */}
-      <JoinedStrategies strategies={joinedStrategies} />
+      {/* Joined Strategies — 3 most recent */}
+      <JoinedStrategies strategies={recentJoined} />
     </div>
   );
 }

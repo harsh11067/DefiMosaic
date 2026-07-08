@@ -5,6 +5,7 @@ import { useAccount, useWriteContract, useReadContract, useWaitForTransactionRec
 import { motion } from 'framer-motion';
 import { LinkIcon, SparklesIcon, ArrowRightIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { isContractDeployed } from '@/config/contracts';
+import { awardPoints } from '@/lib/points';
 import PredictionGraph from './PredictionGraph';
 import PredictionTreeNode from './PredictionTreeNode';
 import dynamic from 'next/dynamic';
@@ -350,6 +351,7 @@ export default function CascadingPredictions({ contractAddress, oracleAddress }:
   useEffect(() => {
     if (isSuccess && receipt) {
       console.log('✅ Transaction successful, refreshing once...');
+      awardPoints('create_prediction');
 
       // Clear form and pending prediction
       setShowCreateForm(false);
@@ -365,53 +367,20 @@ export default function CascadingPredictions({ contractAddress, oracleAddress }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSuccess, receipt]);
 
-  // Handle contract interaction failures - mock the prediction
+  // Handle contract interaction failures honestly — no fabricated success
   useEffect(() => {
     if (isError && error && pendingRootPrediction) {
       const errorMessage = error?.message || error?.toString() || 'Unknown error';
+      setPendingRootPrediction(null);
 
-      // Check if it's a gas/fee/insufficient funds error - show alert for these
-      if (errorMessage.includes('gas') || errorMessage.includes('fee') || errorMessage.includes('insufficient funds')) {
+      const lower = errorMessage.toLowerCase();
+      if (lower.includes('user rejected') || lower.includes('user denied') || lower.includes('4001')) {
+        return; // user cancelled in the wallet — nothing to report
+      }
+      if (lower.includes('gas') || lower.includes('fee') || lower.includes('insufficient funds')) {
         alert(`⚠️ Network Fee Alert: Contract interaction failed due to high gas fees or insufficient funds.\n\nError: ${errorMessage}\n\nPlease try again with a lower amount or ensure you have sufficient funds.`);
-        setPendingRootPrediction(null);
       } else {
-        // For other contract interaction failures, mock the prediction as successful
-        console.log('Contract interaction failed, mocking prediction success:', errorMessage);
-
-        const deadline = Math.floor(new Date(pendingRootPrediction.deadline).getTime() / 1000);
-        const priceTarget = BigInt(Math.floor(parseFloat(pendingRootPrediction.priceTarget) * 1e8));
-        const collateral = BigInt(Math.floor(parseFloat(pendingRootPrediction.collateral) * 1e18));
-        const leverage = BigInt(pendingRootPrediction.leverage);
-        const loan = (collateral * leverage) / BigInt(10000); // Calculate loan from leverage
-
-        // Create a mock prediction chain
-        const mockChain: PredictionChain = {
-          id: Date.now(), // Use timestamp as ID
-          parentId: 0, // Root prediction
-          priceTarget: priceTarget,
-          deadline: BigInt(deadline),
-          collateral: collateral,
-          loan: loan,
-          resolved: false,
-          outcome: false,
-          liquidated: false,
-          children: []
-        };
-
-        // Add to chains
-        setChains(prev => {
-          // Check if chain with same ID already exists
-          if (prev.some(c => c.id === mockChain.id)) {
-            return prev;
-          }
-          console.log('Adding mocked prediction chain:', mockChain);
-          return [...prev, mockChain];
-        });
-
-        // Clear form and pending prediction
-        setShowCreateForm(false);
-        setFormData({ priceTarget: '', deadline: '', leverage: '5000', collateral: '' });
-        setPendingRootPrediction(null);
+        alert(`Prediction transaction failed: ${errorMessage}`);
       }
     }
   }, [isError, error, pendingRootPrediction]);

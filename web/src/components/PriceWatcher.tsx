@@ -3,9 +3,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ChartBarIcon, ArrowUpIcon, ArrowDownIcon } from "@heroicons/react/24/outline";
-const ALCHEMY_URL =
-  process.env.NEXT_PUBLIC_ALCHEMY_API_URL ||
-  `https://polygon-amoy.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`;
 
 interface PriceData {
   price: number;
@@ -25,44 +22,22 @@ export default function PriceWatcher() {
         setLoading(true);
         setError(null);
 
-        // Use Alchemy API to get ETH price
-        const response = await fetch(
-          `https://polygon-amoy.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              jsonrpc: "2.0",
-              method: "eth_blockNumber", // something harmless, valid on any chain
-              params: [],
-              id: 1,
-            }),
-          }
-        );
-        
+        // Real ETH price via our CoinGecko proxy
+        const response = await fetch("/api/eth-price");
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (typeof data.price !== "number") throw new Error("No price data");
 
-        // For demo purposes, we'll use a mock price with some variation
-        // In production, you'd use a real price feed API
-        const mockPrice = 1800 + Math.random() * 200 - 100; // Random price around $1800
-        const mockChange = (Math.random() - 0.5) * 100; // Random change between -50 and +50
-        
+        const changePercent = typeof data.change24h === "number" ? data.change24h : 0;
         setPriceData({
-          price: mockPrice,
-          change24h: mockChange,
-          changePercent24h: (mockChange / mockPrice) * 100,
+          price: data.price,
+          change24h: (data.price * changePercent) / 100,
+          changePercent24h: changePercent,
           timestamp: Date.now(),
         });
       } catch (err) {
         console.error("Failed to fetch price:", err);
         setError("Failed to fetch price data");
-        
-        // Fallback mock data
-        setPriceData({
-          price: 1800,
-          change24h: 25.5,
-          changePercent24h: 1.42,
-          timestamp: Date.now(),
-        });
       } finally {
         setLoading(false);
       }

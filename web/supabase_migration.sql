@@ -57,3 +57,15 @@ CREATE TRIGGER update_strategy_messages_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+
+-- Arena chat ("The Pit") — global trash-talk channel
+CREATE TABLE IF NOT EXISTS arena_chat (
+  id BIGSERIAL PRIMARY KEY,
+  handle TEXT NOT NULL,
+  text TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS arena_chat_created_idx ON arena_chat (created_at DESC);
+ALTER TABLE arena_chat ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "arena_chat_read" ON arena_chat FOR SELECT USING (true);
+CREATE POLICY "arena_chat_write" ON arena_chat FOR INSERT WITH CHECK (true);
