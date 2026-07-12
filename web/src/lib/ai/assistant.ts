@@ -1,12 +1,17 @@
 import { OpenAI } from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 export type RiskProfile = "safe" | "balanced" | "aggressive";
 
 export async function recommendStrategy(input: {
   answers: Record<string, string | number | boolean>;
 }): Promise<{ profile: RiskProfile; allocation: Record<string, number>; rationale: string }> {
+  if (!openai) {
+    return { profile: "balanced", allocation: { aave: 50, uniswap: 30, yield: 20 }, rationale: "Rule-based default (AI not configured)." };
+  }
   const system =
     "You are a DeFi portfolio assistant. Map user risk to one of: safe, balanced, aggressive. Output JSON with profile and allocation across USDC lending (Aave), UniswapV3 LP, and YieldAggregator. Percentages sum to 100.";
 

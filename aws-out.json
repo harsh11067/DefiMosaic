@@ -1,0 +1,9 @@
+{
+ "instance": "i-02c2c28eeb896e975",
+ "ip": "13.203.245.74",
+ "dns": "ec2-13-203-245-74.ap-south-1.compute.amazonaws.com",
+ "sg": "sg-08f1808fb7d821fbc",
+ "bucket": "defimosaic-assets-912392206182",
+ "cloudfront": "E1AEBLNJODS201",
+ "cf_domain": "d2oynp5hsg4w3r.cloudfront.net"
+}
