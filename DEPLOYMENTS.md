@@ -32,12 +32,17 @@ Only free-tier services; no NAT/RDS/ElastiCache/OpenSearch.
 | CloudWatch | alarm `defimosaic-cpu-high` (CPU > 85%) |
 | SSH key | `defimosaic-key.pem` (local only, gitignored) |
 
-**Redeploy on EC2:**
+**Redeploy on EC2** (artifact deploy — t3.micro can't build Next itself):
 ```bash
-ssh -i defimosaic-key.pem ec2-user@13.203.245.74
-cd /opt/DefiMosaic && sudo git pull && cd web && sudo npm install && sudo npm run build && sudo systemctl restart defimosaic
+# locally
+cd web && BUILD_STANDALONE=1 npm run build
+cp -r .next/static .next/standalone/OneDrive/Desktop/DefiMosaic/web/.next/static
+cp -r public       .next/standalone/OneDrive/Desktop/DefiMosaic/web/public
+cd .next/standalone && tar czf /tmp/defimosaic-standalone.tar.gz .
+scp -i defimosaic-key.pem /tmp/defimosaic-standalone.tar.gz ec2-user@13.203.245.74:/tmp/
+ssh -i defimosaic-key.pem ec2-user@13.203.245.74 "sudo bash -c 'cd /opt/defimosaic-app && tar xzf /tmp/defimosaic-standalone.tar.gz && systemctl restart defimosaic'"
 ```
-Bootstrap log: `/var/log/defimosaic-init.log`.
+App runs as systemd service `defimosaic` (standalone `server.js`, port 3000, port 80 via iptables redirect).
 
 ## Supabase (project `ghpgpvfkjjhcpotcvhli`)
 - Auth: **Google + email enabled**. Storage + Realtime healthy.
