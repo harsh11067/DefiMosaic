@@ -1,221 +1,204 @@
+<div align="center">
+
+![DeFi Mosaic](assets/banner.svg)
+
 # DeFi Mosaic
 
-> **Predict. Chain. Prosper.** — Cascading prediction markets, social copy trading,
-> AI-guided portfolios and gamified rewards, unified on Polygon.
+**OWN THE NEXT MOVE.** — real markets, zero-risk adrenaline, on-chain conviction.
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Solidity](https://img.shields.io/badge/solidity-%5E0.8.24-lightgrey.svg)
-![Next.js](https://img.shields.io/badge/next.js-15.5.4-black)
-![Polygon](https://img.shields.io/badge/network-Polygon%20Amoy-purple)
+[![Live on Vercel](https://img.shields.io/badge/▲_Live-Vercel-black?style=for-the-badge)](https://defi-mosaic.vercel.app)
+[![Polygon Amoy](https://img.shields.io/badge/Network-Polygon_Amoy-8247e5?style=for-the-badge&logo=polygon&logoColor=white)](https://amoy.polygonscan.com/)
+[![Next.js 15](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
+[![License MIT](https://img.shields.io/badge/License-MIT-22d3ee?style=for-the-badge)](LICENSE)
 
----
+*Cascading prediction markets · social copy trading · a live-market Arena · AI portfolios — one protocol, every edge.*
 
-## What is DeFi Mosaic?
-
-Most DeFi platforms give you one primitive. Mosaic composes **eight** into a single edge:
-
-| Tile | What it does |
-|---|---|
-| 🔗 **Cascading Predictions** | Post collateral, take an undercollateralized loan (up to 80% leverage) and chain child predictions from it. Parent wins amplify the whole tree; parent failures liquidate the subtree. |
-| 👥 **Social Copy Trading** | Follow top strategies with transparent 0–20% fees, or publish your own with a unique ID and monetize your edge. |
-| 🧠 **AI Portfolio Optimizer** | Risk-profiled allocations across lending, staking and LP strategies with live APY awareness — works with or without an OpenAI key (rule-based fallback built in). |
-| 🎯 **Prediction Pools** | Oracle-resolved price pools (native POL or ERC-20). Take a side, claim 2× on wins. |
-| ⚔️ **The Arena** | Bet a 500 XP starter bankroll on live Binance prices — entry locked on click, settled against the real market print at expiry, wins pay 1.9×. Real market, zero risk. |
-| ⏪ **Time Machine** | Bar-replay trading on real history: any day from the last year streamed at 15–60×, traded with 1–10× leverage. (TradingView sells this — Mosaic gamifies it free.) |
-| 🧾 **Duel Receipts** | Share any settled Arena bet as a link the viewer's browser re-verifies against public Binance data — brag links that cannot be faked. |
-| 🏆 **Mosaic Points** | Every action earns XP: levels, daily streaks, quests and tier badges (🥉→💎). The foundation for Pro-tier SaaS features. |
+</div>
 
 ---
 
-## Architecture
+## 👀 The Product, at a Glance
+
+![Product tour](assets/product-tour.svg)
+
+**DeFi Mosaic** is a gamified trading universe where newcomers feel a *real* market
+with zero risk, and degens graduate to real on-chain positions — all in one place.
+Every price is a genuine market print. Nothing is simulated except the currency
+you practice with.
+
+| | Tile | What it does |
+|---|---|---|
+| ⚔️ | **The Arena** | Bet a free **500 XP** bankroll on live Binance prices across **450+ markets** (crypto, FX pairs, gold). 5-second to 5-minute expiries, settled against the actual candle, wins pay **1.9×**. |
+| ⏪ | **Time Machine** | Bar-replay any real day from the last year at up to **60×**, traded with 1–10× leverage. TradingView sells this feature — Mosaic gamifies it free. |
+| 🏦 | **The House** | Stake XP into the book that underwrites every duel and earn a pro-rata share of the edge. LP economics you can *feel*. |
+| 🧾 | **Duel Receipts** | Share any settled bet as a link the viewer's own browser **re-verifies against public Binance data**. Brag links that cannot be faked. |
+| 🔥 | **Market Pulse** | A live heatmap of the entire Binance USDT universe (~600 pairs) — breadth, heat, volume leaders. Every tile is a door into the Arena. |
+| 🔗 | **Cascading Predictions** | Post collateral, take an undercollateralized loan (up to 80% leverage), chain child predictions. Green chains amplify; failed parents liquidate the subtree. |
+| 👥 | **Social Copy Trading** | Follow strategies with transparent 0–20% fees or publish your own. Strategy pages run **live backtests** (real candles, real fees, buy-&-hold benchmark). |
+| 🧠 | **AI Allocator** | Risk-profiled portfolios across lending, staking and LPs with live APYs — rule-based fallback keeps it working without any API key. |
+| 🏆 | **Mosaic Points** | XP on every action: levels, streaks, quests, tiers 🥉→💎. The SaaS on-ramp (Pro multipliers next). |
+
+---
+
+## 🧭 Why It Wins
+
+**For newcomers** — the single scariest thing about trading is losing money while
+learning. Mosaic gives the full adrenaline loop — live prices, ticking expiries,
+liquidations, win streaks — on a paper bankroll, then walks users on-chain via a
+built-in guide and faucet POL. Zero-to-degen in five guided steps.
+
+**For traders** — a 5-second binary duel engine on 450+ real markets, historical
+bar-replay training, honest backtesting with buy-&-hold verdicts, and copy trading
+with receipts. The tools professionals pay for, gamified.
+
+**For the protocol** — every mechanic feeds the XP economy: bets, wins, streaks,
+house staking, referral-grade duel receipts. Retention is native, not bolted on.
+Pro tier (2× XP, deep analytics, unlimited AI) is the natural monetization.
+
+---
+
+## 🏗️ Architecture
 
 ```mermaid
 flowchart TB
-    subgraph Web ["Frontend — Next.js 15 (web/)"]
-        Landing["/ Landing"] --- Dash["/dashboard"] --- Mkts["/bets Markets"]
-        Dash --> Rewards[RewardsHub 🏆]
-        Dash --> Social[SocialCopyTrading]
-        Arena["/arena Live Duels"] --- TM["/arena/replay Time Machine"]
-        Mkts --> Casc[CascadingPredictions]
-        Arena & TM --> AE["arena.ts — bankroll + duel receipts"]
-        Social & Casc & Rewards & AE --> Points["points.ts — XP engine"]
+    subgraph Client ["🖥️ Frontend — Next.js 15 App Router"]
+        Landing["/ GSAP cinematic landing"]
+        Arena["/arena — live duels"]
+        TM["/arena/replay — Time Machine"]
+        Dash["/dashboard — Terminal"]
+        Mkts["/bets — on-chain markets"]
+        Arena & TM --> AE["arena.ts · bankroll, House, receipts"]
+        Dash --> PTS["points.ts · XP engine"]
+        AE --> PTS
     end
 
-    subgraph API ["API Routes (server)"]
-        Rec["recommend-strategy (AI + fallback)"]
-        Mover["top-mover (CoinGecko proxy)"]
-        Px["arena/price (Binance spot + klines)"]
+    subgraph API ["⚙️ API Routes (server)"]
+        Px["/api/arena/price — spot + 1s/1m kline settlement"]
+        Sym["/api/arena/symbols — 450+ pairs"]
+        Pulse["/api/market/pulse — whole-market 24h heat"]
+        BT["/api/backtest — TS crossover engine"]
+        Chat["/api/arena/chat — The Pit"]
+        Rec["/api/recommend-strategy — AI + fallback"]
     end
 
-    subgraph Amoy ["Polygon Amoy Testnet"]
-        SR[StrategyRegistry]
-        BPF[BetPoolFactory] --> BP[BetPool ERC-1155]
-        MVP[MultiversePrediction]
-        SWH[SwapHelper]
-        ORC[MockOracle] -.price feeds.-> BP & MVP
+    subgraph Data ["📡 Real Data"]
+        BN["Binance public API"]
+        CG["CoinGecko"]
+        SB["Supabase — auth, chat, realtime"]
     end
 
-    Web -- wagmi / viem --> Amoy
-    Dash --> Rec
-    Arena & TM --> Px
+    subgraph Chain ["⛓️ Polygon Amoy"]
+        SR["StrategyRegistry"]
+        BPF["BetPoolFactory → BetPool (ERC-1155)"]
+        MVP["MultiversePrediction"]
+        ORC["Oracle (Chainlink-compatible)"]
+    end
+
+    Client --> API
+    Px & Sym & Pulse & BT --> BN
+    Rec --> CG
+    Chat --> SB
+    Mkts -- "wagmi / viem" --> Chain
+    ORC -.-> BPF & MVP
 ```
 
-**Address wiring:** the deploy script writes `web/src/config/contracts.json`; the
-frontend statically imports it via `web/src/config/contracts.ts` so addresses are
-identical on server and client. `NEXT_PUBLIC_*` env vars override per-key.
-
----
-
-## Key Flows
-
-### Follow a strategy
+### How a 5-second duel settles (all real)
 
 ```mermaid
 sequenceDiagram
-    participant U as User
-    participant UI as StrategyCard
-    participant Sim as Simulation
-    participant MM as MetaMask
-    U->>UI: Follow
-    UI->>U: Investment modal (fee + estimated cost)
-    U->>Sim: Confirm
-    Sim->>Sim: simulate followStrategy()
-    alt exists on-chain
-        Sim->>MM: followStrategy + value (⚠️ gas alert if high)
-    else demo strategy
-        Sim->>MM: native transfer → registry
-    end
-    MM-->>UI: receipt.status == success
-    UI->>UI: Card added to Joined Strategies (3 most recent, persisted)
+    participant U as Player
+    participant A as Arena
+    participant B as Binance
+    U->>A: LONG BTC · 50 XP · 5s
+    A->>B: live spot price
+    B-->>A: $63,557.22 (entry locked)
+    Note over A: countdown… position live
+    A->>B: 1-second kline at expiry
+    B-->>A: close $63,574.00
+    A->>U: WON → +45 XP (1.9×) 🏆
+    U->>U: share duel receipt — anyone can re-verify it
 ```
-
-### Cascading prediction chain
-
-```
-Root (1 POL collateral, 80% leverage → 0.8 POL loan)
- └── Child B (funded by the 0.8 POL loan)
-      └── Child C (funded by B's loan)
-Root succeeds → chain amplifies ROI · Root fails → subtree liquidates
-```
-
-### Mosaic Points
-
-Every confirmed action awards XP through a single engine (`web/src/lib/points.ts`):
-daily check-in +25 🔥 · AI recommendation +40 ✨ · Arena bet +30 ⚔️ · Arena win +60 🏆 ·
-follow +120 🤝 · create strategy +200 🧠 · pool +150 🎯 · chained prediction +150 🔗.
-Levels need `250 × level` XP; tiers unlock at levels 1/3/6/10/15. State persists in
-localStorage and broadcasts via a `mosaic:points` window event so the header XP chip
-and RewardsHub update live.
 
 ---
 
-## Quick Start
-
-**Prerequisites:** Node 18+, MetaMask, Polygon Amoy configured, test POL from the
-[Polygon Faucet](https://faucet.polygon.technology/).
+## 🚀 Quick Start
 
 ```bash
-# 1. Install
-cd contracts && npm install
-cd ../web && npm install
-
-# 2. (Optional) redeploy contracts — updates web/src/config/contracts.json
-cd ../contracts
-npx hardhat run scripts/deploy.ts --network polygon_amoy
-
-# 3. Run
-cd ../web
-npm run dev        # → http://localhost:3000
+git clone https://github.com/harsh11067/DefiMosaic.git
+cd DefiMosaic/web
+npm install
+npm run dev          # → http://localhost:3000
 ```
 
-**Environment (`web/.env.local`, all optional):**
+That's it — the Arena, Time Machine, Market Pulse, backtester and AI allocator
+run on public market data with **zero configuration**. Optional env
+(`web/.env.local`) unlocks more:
 
 ```env
-NEXT_PUBLIC_DEFAULT_NETWORK=polygon_amoy
-NEXT_PUBLIC_WC_PROJECT_ID=your_walletconnect_id
-NEXT_PUBLIC_ALCHEMY_API_URL=https://...      # custom Amoy RPC
-OPENAI_API_KEY=sk-...                        # AI recs; rule-based fallback without it
+NEXT_PUBLIC_SUPABASE_URL=...        # durable chat + Google sign-in
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+OPENAI_API_KEY=...                  # AI recommendations (rule-based fallback without)
+NEXT_PUBLIC_WC_PROJECT_ID=...       # WalletConnect
 ```
+
+For on-chain features: MetaMask on **Polygon Amoy** + free test POL from the
+[faucet](https://faucet.polygon.technology/). Contracts redeploy with
+`cd contracts && npx hardhat run scripts/deploy.ts --network polygon_amoy`
+(addresses auto-write to `web/src/config/contracts.json`).
+
+Supabase schema: run [`web/supabase_migration.sql`](web/supabase_migration.sql)
+once in the SQL editor (chat + messages tables, RLS included).
 
 ---
 
-## Contract Addresses (Polygon Amoy)
-
-Source of truth: [`web/src/config/contracts.json`](web/src/config/contracts.json)
+## 📜 Contracts (Polygon Amoy)
 
 | Contract | Address |
 |----------|---------|
-| StrategyRegistry | `0x205Ac2D3781799Ff979c3E927228eeCD5e88934e` |
-| BetPoolFactory | `0xccbFfd7B0E9F7d2bEA601E3a8d5Cdfb309460DCA` |
-| MultiversePrediction | `0xeCAC342F6088be9a228BFeDf76fd1761F3233d41` |
-| Bet1155 | `0xF6115e1Be9c9B071D30BbF0559a4236Acdc65958` |
-| SwapHelper | `0x12c5e8566A75D2b2c3930f8296b1260F35663030` |
-| USDCMock | `0xdF1039b709ec6F46C1068Db0aFbF3C11fE680390` |
-| MockOracle | `0x1A7C52aC137Fd4f9909FB107057f8eb770F87CF6` |
+| StrategyRegistry | [`0x205A…934e`](https://amoy.polygonscan.com/address/0x205Ac2D3781799Ff979c3E927228eeCD5e88934e) |
+| BetPoolFactory | [`0xccbF…0DCA`](https://amoy.polygonscan.com/address/0xccbFfd7B0E9F7d2bEA601E3a8d5Cdfb309460DCA) |
+| MultiversePrediction | [`0xeCAC…3d41`](https://amoy.polygonscan.com/address/0xeCAC342F6088be9a228BFeDf76fd1761F3233d41) |
+| Bet1155 | [`0xF611…5958`](https://amoy.polygonscan.com/address/0xF6115e1Be9c9B071D30BbF0559a4236Acdc65958) |
+| USDCMock / MockOracle | testnet stand-ins (see [`contracts.json`](web/src/config/contracts.json)) |
 
 ---
 
-## Project Structure
+## 📈 Product Potential
 
+```mermaid
+flowchart LR
+    A["🎮 Today<br/>Gamified paper trading<br/>on real markets"] --> B["💎 Mosaic Pro<br/>2× XP · deep analytics<br/>unlimited AI — SaaS tier"]
+    B --> C["🌐 Network<br/>Global leaderboards ·<br/>PvP duels · creator fees"]
+    C --> D["⛓️ Mainnet<br/>Real-stake arena pools ·<br/>strategy vaults · $MOSAIC"]
 ```
-DefiMosaic/
-├── contracts/                # Hardhat + Solidity ^0.8.24
-│   ├── contracts/            # BetPool(Factory), MultiversePrediction,
-│   │                         # StrategyRegistry, SwapHelper, mocks
-│   ├── scripts/deploy.ts     # deploys + writes web contracts.json
-│   └── test/
-├── web/                      # Next.js 15 App Router
-│   └── src/
-│       ├── app/              # /, /dashboard, /bets, /api/*
-│       ├── components/       # RewardsHub, SocialCopyTrading,
-│       │                     # CascadingPredictions, StrategyCard, …
-│       ├── config/           # contracts.ts + contracts.json
-│       └── lib/              # points.ts (XP engine) · arena.ts (Arena,
-│                             #   Time Machine bankroll, duel receipts)
-├── CHANGES.md                # full changelog of the overhaul (with diagrams)
-└── PROJECT_DOCUMENTATION.md  # deep technical reference
-```
+
+- **Acquisition:** free 500 XP + shareable, trustlessly-verifiable duel receipts = viral loops with proof built in.
+- **Retention:** streaks, quests, tiers, house staking — the points meta that top protocols run, native from day one.
+- **Monetization:** Pro subscriptions, strategy marketplace fees, house-pool spread.
+- **Moat:** honest engines. Every number traces to a public market print — competitors demo with fakes; Mosaic verifies in your browser.
 
 ---
 
-## Testnet Notes (important)
+## 🧪 Honesty Layer
 
-- **SwapHelper** references the **mainnet** Uniswap V3 router, which doesn't exist on
-  Amoy — real swaps would always revert, so the SurgeBoost UI was removed until a
-  real router deployment exists. Full mock/fallback inventory: [mocks_rn.md](./mocks_rn.md).
-- The two pre-seeded strategies (*Conservative Yield*, *Aggressive Growth*) are
-  demo entries, not on-chain registry rows; following them sends a real native
-  transfer to the registry instead of `followStrategy`.
-- Created strategies, joined strategies, the leaderboard freeze window and Mosaic
-  Points persist in localStorage.
+Every mock, fallback and stub in the codebase is publicly inventoried in
+[**mocks_rn.md**](mocks_rn.md) — what's real (🟢), what degrades gracefully (🟡),
+and what was deleted rather than faked (⚫). The full overhaul history lives in
+[CHANGES.md](CHANGES.md).
 
-## Testing & Docs
+## 🛠️ Tech
 
-```bash
-cd contracts && npm test                       # contract tests
-cd web && npx tsc --noEmit                     # typecheck (build ignores TS errors)
-```
+Next.js 15 · React 19 · TypeScript · Tailwind 4 · GSAP + Framer Motion ·
+wagmi/viem + RainbowKit · Supabase · Solidity 0.8 + Hardhat + OpenZeppelin ·
+Binance/CoinGecko public data
 
-- [CHANGES.md](./CHANGES.md) — what was fixed/added and why, with flow diagrams
-- [PROJECT_DOCUMENTATION.md](./PROJECT_DOCUMENTATION.md) — full technical reference
-- [SETUP.md](./SETUP.md) — extended setup guide
+## 📄 License
 
-## Roadmap
+MIT — build on it.
 
-- [x] Cascading predictions · social copy trading · AI optimizer · live prices
-- [x] Mosaic Points (XP, levels, streaks, quests, tiers)
-- [x] The Arena — real-market XP betting (500 XP starter bankroll)
-- [x] Time Machine — bar-replay trading on real Binance history
-- [x] Duel Receipts — trustlessly verifiable share links
-- [ ] **Mosaic Pro** — 2× XP, deep analytics, unlimited AI (SaaS tier)
-- [ ] Server-side points + global leaderboard (Supabase)
-- [ ] Real DEX integration on mainnet · multi-chain support
-- [ ] Governance token + strategy marketplace
+<div align="center">
 
-## License
+**Built with conviction. Settled by the market.** ⚔️
 
-MIT — see [LICENSE](LICENSE).
-
----
-
-**Built with ❤️ for the DeFi community** · *DeFi Mosaic — where predictions meet prosperity.*
+</div>

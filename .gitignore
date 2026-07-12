@@ -68,3 +68,8 @@ Thumbs.db
 *.log
 *.tsbuildinfo
 contracts/my-smart-wallets-app/
+# secrets & local-only
+.env.exampil
+deploy.env
+script.md
+*.env.local
