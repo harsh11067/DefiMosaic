@@ -6,7 +6,9 @@
 
 **OWN THE NEXT MOVE.** — real markets, zero-risk adrenaline, on-chain conviction.
 
-[![Live on Vercel](https://img.shields.io/badge/▲_Live-Vercel-black?style=for-the-badge)](https://defi-mosaic.vercel.app)
+[![Live on Vercel](https://img.shields.io/badge/▲_Live-Vercel-black?style=for-the-badge)](https://defi-mosaic-kharsh-projects.vercel.app)
+[![Render](https://img.shields.io/badge/API-Render-46e3b7?style=for-the-badge&logo=render&logoColor=white)](https://defimosaic.onrender.com)
+[![AWS CloudFront](https://img.shields.io/badge/Edge-CloudFront-ff9900?style=for-the-badge&logo=amazonwebservices&logoColor=white)](https://d2oynp5hsg4w3r.cloudfront.net)
 [![Polygon Amoy](https://img.shields.io/badge/Network-Polygon_Amoy-8247e5?style=for-the-badge&logo=polygon&logoColor=white)](https://amoy.polygonscan.com/)
 [![Next.js 15](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
 [![License MIT](https://img.shields.io/badge/License-MIT-22d3ee?style=for-the-badge)](LICENSE)
@@ -186,6 +188,16 @@ Every mock, fallback and stub in the codebase is publicly inventoried in
 [**mocks_rn.md**](mocks_rn.md) — what's real (🟢), what degrades gracefully (🟡),
 and what was deleted rather than faked (⚫). The full overhaul history lives in
 [CHANGES.md](CHANGES.md).
+
+## 🌐 Live Deployments
+
+| Target | URL |
+|---|---|
+| ▲ Vercel (primary) | https://defi-mosaic-kharsh-projects.vercel.app |
+| Render (backend) | https://defimosaic.onrender.com *(free tier — first hit wakes it, ~30s)* |
+| AWS CloudFront → EC2 | https://d2oynp5hsg4w3r.cloudfront.net |
+
+Full infra details: [DEPLOYMENTS.md](DEPLOYMENTS.md)
 
 ## 🛠️ Tech
 
