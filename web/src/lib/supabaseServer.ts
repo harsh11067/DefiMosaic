@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { resolveSupabasePublic, envSupabaseIsCurrent } from '@/config/supabasePublic';
 
 // Server-side Supabase client (for API routes)
 let supabaseServer: SupabaseClient | null = null;
@@ -7,10 +8,16 @@ export function getSupabaseServer(): SupabaseClient | null {
   if (supabaseServer) {
     return supabaseServer;
   }
-  
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-  
+
+  // Pin the URL to the current project (ignores stale hosting env vars).
+  const { url, anonKey } = resolveSupabasePublic();
+  // Only trust the service-role key when the env actually points at the current
+  // project; otherwise fall back to the (public, RLS-limited) anon key so we
+  // never send a mismatched key to a different instance.
+  const serviceRoleKey = envSupabaseIsCurrent()
+    ? (process.env.SUPABASE_SERVICE_ROLE_KEY || anonKey)
+    : anonKey;
+
   if (!url || !serviceRoleKey) {
     console.warn('Supabase server config not available - check NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
     return null;

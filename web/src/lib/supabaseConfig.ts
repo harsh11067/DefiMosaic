@@ -2,6 +2,7 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
+import { resolveSupabasePublic } from '@/config/supabasePublic';
 
 // Supabase client configuration
 function getSupabaseConfig() {
@@ -10,20 +11,9 @@ function getSupabaseConfig() {
     // Server-side: return null
     return null;
   }
-  
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-  
-  // Debug: log which vars are missing
-  const missingVars: string[] = [];
-  if (!url) missingVars.push('NEXT_PUBLIC_SUPABASE_URL');
-  if (!anonKey) missingVars.push('NEXT_PUBLIC_SUPABASE_ANON_KEY');
-  
-  if (missingVars.length > 0) {
-    console.warn('Missing Supabase environment variables:', missingVars);
-    console.warn('Please set these in web/.env.local and restart the dev server');
-  }
-  
+
+  // Pinned public config wins over any stale hosting env var (see supabasePublic.ts)
+  const { url, anonKey } = resolveSupabasePublic();
   return { url, anonKey };
 }
 
