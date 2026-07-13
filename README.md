@@ -182,15 +182,6 @@ flowchart LR
 
 ---
 
-## 🧪 Honesty Layer
-
-Every price on Mosaic traces to a public market print (Binance / CoinGecko),
-independently verifiable. Where a feature can't run trustlessly on testnet it
-**degrades gracefully or is removed rather than faked** — e.g. Arena chat falls
-back to an in-memory engine when the Supabase table is absent, and the AI
-allocator ships a deterministic rule-based fallback when no API key is present.
-The full engineering history lives in [CHANGES.md](CHANGES.md).
-
 ## 🌐 Live Deployments
 
 | Target | URL |
