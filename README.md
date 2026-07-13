@@ -184,16 +184,18 @@ flowchart LR
 
 ## 🧪 Honesty Layer
 
-Every mock, fallback and stub in the codebase is publicly inventoried in
-[**mocks_rn.md**](mocks_rn.md) — what's real (🟢), what degrades gracefully (🟡),
-and what was deleted rather than faked (⚫). The full overhaul history lives in
-[CHANGES.md](CHANGES.md).
+Every price on Mosaic traces to a public market print (Binance / CoinGecko),
+independently verifiable. Where a feature can't run trustlessly on testnet it
+**degrades gracefully or is removed rather than faked** — e.g. Arena chat falls
+back to an in-memory engine when the Supabase table is absent, and the AI
+allocator ships a deterministic rule-based fallback when no API key is present.
+The full engineering history lives in [CHANGES.md](CHANGES.md).
 
 ## 🌐 Live Deployments
 
 | Target | URL |
 |---|---|
-| ▲ Vercel (primary) | https://defi-mosaic-kharsh-projects.vercel.app |
+| ▲ Vercel (primary) | https://defi-mosaic.vercel.app |
 | Render (backend) | https://defimosaic.onrender.com *(free tier — first hit wakes it, ~30s)* |
 | AWS CloudFront → EC2 | https://d2oynp5hsg4w3r.cloudfront.net |
 

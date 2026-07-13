@@ -74,3 +74,4 @@ deploy.env
 script.md
 *.env.local
 defimosaic-key.pem
+mocks_rn.md
